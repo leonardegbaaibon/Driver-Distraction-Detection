@@ -10,12 +10,27 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+//        maven { url "https://chaquo.com/maven" }
+
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.ext.kotlinVersion}")
+//        classpath("com.chaquo.python:gradle:7.0.4") //
+
     }
 }
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral() // Ensure this is included
+    }
+}
+
+//plugins {
+//    id("com.chaquo.python") version "15.0.1" apply false
+//}
 
 apply plugin: "com.facebook.react.rootproject"

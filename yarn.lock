@@ -2887,6 +2887,7 @@ __metadata:
     prettier: 2.8.8
     react: 18.3.1
     react-native: 0.75.4
+    react-native-permissions: ^5.0.0
     react-test-renderer: 18.3.1
     typescript: 5.0.4
   languageName: unknown
@@ -7792,6 +7793,20 @@ __metadata:
   version: 17.0.2
   resolution: "react-is@npm:17.0.2"
   checksum: 9d6d111d8990dc98bc5402c1266a808b0459b5d54830bbea24c12d908b536df7883f268a7868cfaedde3dd9d4e0d574db456f84d2e6df9c4526f99bb4b5344d8
+  languageName: node
+  linkType: hard
+
+"react-native-permissions@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "react-native-permissions@npm:5.0.0"
+  peerDependencies:
+    react: ">=18.1.0"
+    react-native: ">=0.70.0"
+    react-native-windows: ">=0.70.0"
+  peerDependenciesMeta:
+    react-native-windows:
+      optional: true
+  checksum: 8674d7f276ad678c36f855e85a2f63d75abf88633fce31fa344ee983a4fa1571dea56eaf3e7949778eb0c971aad67092da5dc08dace67ccde84ddbe4b6e19d63
   languageName: node
   linkType: hard
 

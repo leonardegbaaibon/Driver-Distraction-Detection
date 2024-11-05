@@ -1,6 +1,8 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+apply plugin: "kotlin-android"
+//apply plugin: 'com.chaquo.python'
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -76,7 +78,7 @@ android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
-
+    compileSdkVersion 34 // or higher, depending on your project needs
     namespace "com.gumshoe_app"
     defaultConfig {
         applicationId "com.gumshoe_app"
@@ -84,6 +86,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+
     }
     signingConfigs {
         debug {
@@ -107,9 +110,22 @@ android {
     }
 }
 
+//chaquopy {
+//    defaultConfig {
+//        version = "3.12"
+//    }
+//    productFlavors {
+//        getByName("py38") { version = "3.12" }
+////        getByName("py311") { version = "3.11" }
+//    }
+//    sourceSets { }
+//}
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24")
+//    implementation 'org.jtransforms:jtransforms:2.4.0' // Use the correct Maven coordinates
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
