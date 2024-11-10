@@ -1,79 +1,92 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Driver Distraction Detection - Android App
 
-# Getting Started
+Welcome to **Driver Distraction Detection**! This Android app is designed to detect distractions while driving by monitoring phone usage and using acoustic signals to determine the type of material the phone is placed on. The app aims to reduce road accidents by providing real-time feedback to drivers when distractions are detected.
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+---
 
-## Step 1: Start the Metro Server
+## 🚗 Key Features
+- **Phone Usage Detection**: The app tracks when the phone is being used during driving, such as texting, calling, or browsing apps. It will notify the driver if any usage is detected during driving.
+- **Acoustic Signal Analysis**: The app uses acoustic signals to detect the type of material the phone is placed on (e.g., seat, dashboard, or other surfaces). This helps in identifying if the phone is likely being used while driving or if it is safely stored.
+- **Real-Time Notifications**: Whenever a distraction is detected (whether from phone usage or acoustic signals), the app sends real-time notifications to alert the driver.
+- **Background Monitoring**: The app continuously monitors phone usage and acoustic signals in the background while the driver is on the road.
+- **Distraction Logs**: Track and view logs of detected distractions to help users monitor their driving habits.
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+---
 
-To start Metro, run the following command from the _root_ of your React Native project:
+## 📱 Platform
+- **Android (Mobile)**: This app is designed for Android smartphones, compatible with Android versions 6.0 (API 23) and above.
 
-```bash
-# using npm
-npm start
+---
 
-# OR using Yarn
-yarn start
-```
+## 🛠️ Technologies Used
+- **Programming Language**: Kotlin
+- **Acoustic Signal Processing**: Audio API for capturing and processing acoustic signals
+- **Phone Usage Detection**: UsageStatsManager API to track app usage during driving
+- **Background Services**: Services to monitor phone usage and acoustic signals in the background
+- **UI**: Android UI components for displaying notifications and logs
 
-## Step 2: Start your Application
+---
 
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
+## 📑 App Flow
 
-### For Android
+1. **Launch Screen**: Upon launching the app, it asks for necessary permissions (phone usage access, microphone access for acoustic signal detection).
+2. **Monitoring Screen**: Once permissions are granted, the app continuously monitors phone usage and acoustic signals while driving.
+3. **Distraction Detection**: The app detects if the phone is being used (e.g., sending a text or making a call) or if the acoustic signal suggests that the phone is placed on a distraction-prone surface.
+4. **Notifications**: If a distraction is detected, the app sends real-time notifications to the driver, urging them to focus on the road.
+5. **Log Screen**: View a log of past distractions, including the type of distraction and when it occurred.
 
-```bash
-# using npm
-npm run android
+---
 
-# OR using Yarn
-yarn android
-```
+## 💻 Getting Started
 
-### For iOS
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/driver-distraction-detection.git
+    ```
 
-```bash
-# using npm
-npm run ios
+2. **Install dependencies**:
+    - Ensure you have Android Studio installed and set up on your system.
+    - Open the project in Android Studio.
+    - Sync the project to download dependencies.
 
-# OR using Yarn
-yarn ios
-```
+3. **Run the app**:
+    - Connect your Android device or use an emulator.
+    - Build and run the app from Android Studio.
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+---
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+## 📝 Permissions
 
-## Step 3: Modifying your App
+The app requires the following permissions to function properly:
+- **Phone Usage Access**: To track phone usage during driving.
+- **Microphone Access**: To detect and analyze acoustic signals from the phone's surroundings.
+- **Background Service**: To run monitoring services in the background.
 
-Now that you have successfully run the app, let's modify it.
+---
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+## 💡 Future Enhancements
+- **Machine Learning**: Integrate machine learning models to better detect specific types of distractions (e.g., voice, text, or app usage patterns).
+- **Integration with Car Bluetooth**: Detect whether the phone is connected to the car's Bluetooth system, indicating that the user may be in a vehicle.
+- **UI/UX Improvements**: Enhance the user interface with more intuitive navigation and real-time feedback mechanisms.
+- **Location-based Alerts**: Add geofencing features to notify users when driving in high-risk areas (e.g., school zones, busy intersections).
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+---
 
-## Congratulations! :tada:
+## 💬 Let's Connect
 
-You've successfully run and modified your React Native App. :partying_face:
+If you have any feedback, suggestions, or questions, feel free to reach out!
 
-### Now what?
+- **GitHub**: [@Leonardegbaaibon](https://github.com/leonardegbaaibon)
+- **LinkedIn**: [Leonard Egbaaibon](https://linkedin.com/in/legbaaibon@gmail.com)
+- **Email**: your-email@gmail.com
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
+---
 
-# Troubleshooting
+## 🚀 Contribute
 
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+If you'd like to contribute to the development of the **Driver Distraction Detection** app, feel free to fork the repository and create a pull request with your improvements.
 
-# Learn More
+---
+---
 
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Thank you for checking out **Driver Distraction Detection**—helping drivers stay focused and safe on the road by detecting distractions through acoustic signals and phone usage!
