@@ -78,7 +78,7 @@ If you have any feedback, suggestions, or questions, feel free to reach out!
 
 - **GitHub**: [@Leonardegbaaibon](https://github.com/leonardegbaaibon)
 - **LinkedIn**: [Leonard Egbaaibon](https://linkedin.com/in/legbaaibon@gmail.com)
-- **Email**: your-email@gmail.com
+- **Email**: your-legbaaibon@gmail.com
 
 ---
 
