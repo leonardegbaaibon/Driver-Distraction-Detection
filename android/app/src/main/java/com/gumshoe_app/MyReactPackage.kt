@@ -11,12 +11,13 @@ class MyReactPackage : ReactPackage {
         val modules: MutableList<NativeModule> = ArrayList()
         modules.add(MyNativeModule(reactContext))
         modules.add(CalendarModule(reactContext))
-        modules.add(UltrasonicModule(reactContext))
-        modules.add(RecordingModule(reactContext))
+//        modules.add(UltrasonicModule(reactContext))
+//        modules.add(RecordingModule(reactContext))
         modules.add(MotionsensingModule(reactContext))
-        modules.add(MotionSensorModule(reactContext))
-        modules.add(ActivityMonitorModule(reactContext))
+//        modules.add(MotionSensorModule(reactContext))
+//        modules.add(ActivityMonitorModule(reactContext))
         modules.add(CameraModule(reactContext))
+//        modules.add(InteractionMonitorModule(reactContext))
 
 
 

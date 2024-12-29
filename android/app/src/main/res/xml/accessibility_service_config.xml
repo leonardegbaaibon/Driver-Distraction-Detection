@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The package name of the service -->
+    <android:packageName value="com.example.gumshoe-app"/>
+
+    <!-- Enable the accessibility service -->
+    <android:enabled value="true"/>
+
+    <!-- Define the feedback type (e.g., spoken feedback) -->
+    <android:feedbackType value="feedbackSpoken"/>
+
+    <!-- Define which events this service listens to -->
+    <android:accessibilityEventTypes value="typeTouchExploration|typeViewClicked|typeWindowStateChanged|typeViewFocused"/>
+
+</accessibility-service>

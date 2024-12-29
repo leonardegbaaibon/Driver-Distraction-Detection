@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState} from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
   DeviceEventEmitter,
   NativeModules,
   Image,
+  NativeEventEmitter,
 } from 'react-native';
-import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 const {
   MyNativeModule,
@@ -20,24 +21,26 @@ const {
   RecordingModule,
   MotionSensorModule,
   ActivityMonitorModule,
-  CameraModule
+  CameraModule,
+  InteractionMonitorModule
 } = NativeModules;
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const App = () => {
   const [motionStatus, setMotionStatus] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [appActivity, setAppActivity] = useState('No activity detected');
   const [imager, setImage] = useState('');
+  const [tapCount, setTapCount] = useState(0);
 
   const scrollX = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef(null);
 
   const screens = [
-    {text: 'Faults Monitor', description: 'Track of faults in real-time.'},
-    {text: 'Trips Data', description: 'Analyze your driving trips easily.'},
-    {text: 'Driver Badge', description: 'Earn badges for safe driving.'},
+    { text: 'Faults Monitor', description: 'Track of faults in real-time.' },
+    { text: 'Trips Data', description: 'Analyze your driving trips easily.' },
+    { text: 'Driver Badge', description: 'Earn badges for safe driving.' },
   ];
 
   const backgroundColor = scrollX.interpolate({
@@ -46,94 +49,104 @@ const App = () => {
     extrapolate: 'clamp',
   });
 
-  const captureImage = async () => {
-    try {
-        const base64Image = await CameraModule.captureImage();
-        // Use the base64Image
-        console.log(base64Image)
-        setImage(base64Image)
-    } catch (error) {
-        console.error(error);
-    }
-};
+  // const captureImage = async () => {
+  //   try {
+  //     const base64Image = await CameraModule.captureImage();
+  //     // Use the base64Image
+  //     console.log(base64Image)
+  //     setImage(base64Image)
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // };
 
-  useEffect(() => {
-    captureImage()
-    // const captureImage = () => {
-    // };
-    // ActivityMonitorModule.captureImage();
 
-    // Listener for the captured image event
-    // DeviceEventEmitter.addListener('onImageCaptured', event => {
-    //   const {capturedImage} = event;
-    //   console.log('Captured image (base64):', capturedImage);
-    //   setImage(capturedImage);
-    // });
+  // useEffect(() => {
+  //   // Start listening for the tap count event from native code
+  //   const eventListener = DeviceEventEmitter.addListener('TapCountEvent', (count) => {
+  //     // Update the tap count whenever the event is received
+  //     setTapCount(count);
+  //     console.log(`Tap count updated: ${count}`);
+  //   });
 
-    const requestMicrophonePermission = async () => {
-      const result = await request(PERMISSIONS.ANDROID.RECORD_AUDIO);
-      if (result === RESULTS.GRANTED) {
-        console.log('Microphone permission granted');
-      } else {
-        Alert.alert('Microphone permission denied');
-      }
-    };
+  //   // Start monitoring
+  //   InteractionMonitorModule.startMonitoring();
 
-    requestMicrophonePermission();
-    // Initialize event listeners for activity monitoring
-    const activitySubscription = DeviceEventEmitter.addListener(
-      'onAppOpened',
-      event => {
-        if (event && event.foregroundApp) {
-          console.log(`Foreground app detected: ${event.foregroundApp}`);
-          setAppActivity(`Current activity: ${event.foregroundApp}`);
-        }
-      },
-    );
+  //   // Cleanup the event listener on component unmount
+  //   return () => {
+  //     eventListener.remove();
+  //   };
+  // }, []);
 
-    // Start monitoring app activity
-    ActivityMonitorModule.checkAndRequestUsageStatsPermission()
-      .then(granted => {
-        if (granted) {
-          ActivityMonitorModule.startActivityMonitoring();
-        } else {
-          console.warn('Permission not granted. Please enable it in settings.');
-        }
-      })
-      .catch(error =>
-        console.error('Error checking usage stats permission:', error),
-      );
 
-    // Clean up the listener and stop monitoring on unmount
-    return () => {
-      ActivityMonitorModule.stopActivityMonitoring();
-      activitySubscription.remove();
-    };
-  }, []);
+  // useEffect(() => {
+  //   captureImage()
+  //   const requestMicrophonePermission = async () => {
+  //     const result = await request(PERMISSIONS.ANDROID.RECORD_AUDIO);
+  //     if (result === RESULTS.GRANTED) {
+  //       console.log('Microphone permission granted');
+  //     } else {
+  //       Alert.alert('Microphone permission denied');
+  //     }
+  //   };
 
-  const startDetection = () => {
-    setIsDetecting(true);
-    MotionSensorModule.startSensorDetection()
-      .then(result => {
-        setMotionStatus(result);
-      })
-      .catch(error => {
-        console.error(error);
-      });
-  };
+  //   requestMicrophonePermission();
+  //   // Initialize event listeners for activity monitoring
+  //   const activitySubscription = DeviceEventEmitter.addListener(
+  //     'onAppOpened',
+  //     event => {
+  //       if (event && event.foregroundApp) {
+  //         console.log(`Foreground app detected: ${event.foregroundApp}`);
+  //         setAppActivity(`Current activity: ${event.foregroundApp}`);
+  //       }
+  //     },
+  //   );
 
-  const stopDetection = () => {
-    setIsDetecting(false);
-    MotionSensorModule.stopSensorDetection();
-  };
 
-  useEffect(() => {
-    return () => {
-      if (isDetecting) {
-        stopDetection();
-      }
-    };
-  }, [isDetecting]);
+
+  //   // Start monitoring app activity
+  //   ActivityMonitorModule.checkAndRequestUsageStatsPermission()
+  //     .then(granted => {
+  //       if (granted) {
+  //         ActivityMonitorModule.startActivityMonitoring();
+  //       } else {
+  //         console.warn('Permission not granted. Please enable it in settings.');
+  //       }
+  //     })
+  //     .catch(error =>
+  //       console.error('Error checking usage stats permission:', error),
+  //     );
+
+  //   // Clean up the listener and stop monitoring on unmount
+  //   return () => {
+  //     ActivityMonitorModule.stopActivityMonitoring();
+  //     activitySubscription.remove();
+  //   };
+  // }, []);
+
+  // const startDetection = () => {
+  //   setIsDetecting(true);
+  //   MotionSensorModule.startSensorDetection()
+  //     .then(result => {
+  //       setMotionStatus(result);
+  //     })
+  //     .catch(error => {
+  //       console.error(error);
+  //     });
+  // };
+
+  // const stopDetection = () => {
+  //   setIsDetecting(false);
+  //   MotionSensorModule.stopSensorDetection();
+  // };
+
+  // useEffect(() => {
+  //   return () => {
+  //     if (isDetecting) {
+  //       stopDetection();
+  //     }
+  //   };
+  // }, [isDetecting]);
 
   const handleContinue = () => {
     const currentIndex = Math.floor(scrollX._value / width);
@@ -161,7 +174,7 @@ const App = () => {
     try {
       const result = await RecordingModule.startRecording(5);
       console.log('Recording Result:', result);
-      const {message, material, frequency, amplitude} = result;
+      const { message, material, frequency, amplitude } = result;
       console.log(`Message: ${message}`);
       console.log(`Detected Material: ${material}`);
       console.log(`Detected Frequency: ${frequency}`);
@@ -179,7 +192,7 @@ const App = () => {
     }
   };
   return (
-    <Animated.View style={{flex: 1, backgroundColor}}>
+    <Animated.View style={{ flex: 1, backgroundColor }}>
       <View
         style={{
           position: 'absolute',
@@ -213,7 +226,7 @@ const App = () => {
                   }),
                   marginHorizontal: 4,
                   borderRadius: 3,
-                  transform: [{scale}],
+                  transform: [{ scale }],
                 }}
               />
             );
@@ -227,8 +240,8 @@ const App = () => {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onScroll={Animated.event(
-          [{nativeEvent: {contentOffset: {x: scrollX}}}],
-          {useNativeDriver: false},
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false },
         )}
         scrollEventThrottle={16}>
         {screens.map((screen, index) => (
@@ -263,18 +276,18 @@ const App = () => {
                   },
                 ],
               }}>
-            {imager && (
+              {imager && (
                 <Image
-                    source={{ uri: `data:image/jpeg;base64,${imager}` }} // Set the image source
-                    style={{
-                      width: 300, // Adjust the width and height as needed
-                      height: 300,
-                      marginTop: 20,
-              }}
+                  source={{ uri: `data:image/jpeg;base64,${imager}` }} // Set the image source
+                  style={{
+                    width: 300, // Adjust the width and height as needed
+                    height: 300,
+                    marginTop: 20,
+                  }}
                 />
-            )}
+              )}
 
-              <Text style={{fontSize: 22, fontFamily: 'JuliusSansOneRegular'}}>
+              <Text style={{ fontSize: 22, fontFamily: 'JuliusSansOneRegular' }}>
                 {screen.text}
               </Text>
               <Text
@@ -286,6 +299,9 @@ const App = () => {
                 }}>
                 {screen.description}
               </Text>
+              <View>
+                <Text>Tap Count: {tapCount}</Text>
+              </View>
             </Animated.View>
           </TouchableOpacity>
         ))}

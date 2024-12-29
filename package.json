@@ -1,6 +1,6 @@
 {
   "name": "Gumshoe_app",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native/gradle-plugin": "latest",
     "react": "18.3.1",
     "react-native": "0.75.4",
     "react-native-permissions": "^5.0.0"
