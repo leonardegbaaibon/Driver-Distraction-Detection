@@ -1,3 +1,5 @@
+package com.gumshoe_app
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +15,12 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.math.sqrt
 
 class CrashTriggerService : Service(), SensorEventListener, LocationListener {
@@ -22,19 +30,9 @@ class CrashTriggerService : Service(), SensorEventListener, LocationListener {
         private const val NOTIFICATION_ID = 1
     }
 
-    // Constants
-    private val accelThreshold = 50.0f // m/s²
-    private val gyroThreshold = 300.0f // degrees/sec
-    private val speedDropPercentage = 80.0f // Speed drop threshold
-    private val timeWindow = 200 // milliseconds
-
     // Variables
     private lateinit var sensorManager: SensorManager
     private lateinit var locationManager: LocationManager
-    private var prevSpeed = 0.0f
-    private var potentialCrash = false
-    private var isCrash = false
-    private var startTime = System.currentTimeMillis()
 
     override fun onCreate() {
         super.onCreate()
@@ -104,64 +102,56 @@ class CrashTriggerService : Service(), SensorEventListener, LocationListener {
     }
 
     private fun handleAccelerometerData(values: FloatArray) {
-        val totalAccel = sqrt(
-            (values[0] * values[0] +
-                    values[1] * values[1] +
-                    values[2] * values[2]).toDouble()
-        ).toFloat()
+        val x = values[0]
+        val y = values[1]
+        val z = values[2]
 
-        if (totalAccel >= accelThreshold) {
-            Log.d("CrashTriggerService", "Potential crash: High acceleration!")
-            potentialCrash = true
-        }
+        Log.d("CrashTriggerService", "Accelerometer Data - X: $x, Y: $y, Z: $z")
+        sendDataToBackend("accelerometer", x, y, z)
     }
 
     private fun handleGyroscopeData(values: FloatArray) {
-        val totalGyro = sqrt(
-            (values[0] * values[0] +
-                    values[1] * values[1] +
-                    values[2] * values[2]).toDouble()
-        ).toFloat()
+        val x = values[0]
+        val y = values[1]
+        val z = values[2]
 
-        if (totalGyro >= gyroThreshold) {
-            Log.d("CrashTriggerService", "Potential crash: High rotation!")
-            potentialCrash = true
+        Log.d("CrashTriggerService", "Gyroscope Data - X: $x, Y: $y, Z: $z")
+        sendDataToBackend("gyroscope", x, y, z)
+    }
+
+    private fun sendDataToBackend(sensorType: String, x: Float, y: Float, z: Float) {
+        val url = "https://your-backend-endpoint.com/sensor-data" // Replace with your backend URL
+        val jsonData = JSONObject().apply {
+            put("sensor_type", sensorType)
+            put("x", x)
+            put("y", y)
+            put("z", z)
+            put("timestamp", System.currentTimeMillis())
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+
+                connection.outputStream.use { it.write(jsonData.toString().toByteArray()) }
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    Log.d("CrashTriggerService", "Data sent successfully")
+                } else {
+                    Log.e("CrashTriggerService", "Failed to send data: $responseCode")
+                }
+            } catch (e: Exception) {
+                Log.e("CrashTriggerService", "Error sending data", e)
+            }
         }
     }
 
     override fun onLocationChanged(location: Location) {
-        val currentSpeed = location.speed * 3.6f // Convert m/s to km/h
-        val speedDrop = if (prevSpeed > 0) {
-            ((prevSpeed - currentSpeed) / prevSpeed) * 100
-        } else {
-            0.0f
-        }
-
-        if (speedDrop >= speedDropPercentage) {
-            Log.d("CrashTriggerService", "Potential crash: Sudden speed drop!")
-            evaluateCrash()
-        }
-
-        prevSpeed = currentSpeed
-    }
-
-    private fun evaluateCrash() {
-        val currentTime = System.currentTimeMillis()
-        if (potentialCrash && (currentTime - startTime) <= timeWindow) {
-            isCrash = true
-            triggerEmergencyProtocol()
-        }
-        resetCrashEvaluation()
-    }
-
-    private fun triggerEmergencyProtocol() {
-        Log.d("CrashTriggerService", "Crash detected! Triggering emergency protocol.")
-        // Add emergency response actions here (e.g., send notification, call emergency services)
-    }
-
-    private fun resetCrashEvaluation() {
-        potentialCrash = false
-        startTime = System.currentTimeMillis()
+        // Optional: If location data is needed, log and send it here
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {

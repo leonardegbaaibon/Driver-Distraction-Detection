@@ -14,6 +14,8 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import com.gumshoe_app.CrashTriggerService // Import added here
+
 
 class MainActivity : ReactActivity() {
     private val TAG = "GumshoeApp"
@@ -152,8 +154,12 @@ class MainActivity : ReactActivity() {
         startForegroundService(monitoringServiceIntent)
 
         // Start CrashTriggerService
-        val crashTriggerServiceIntent = Intent(this, CrashTriggerService::class.java)
-        startForegroundService(crashTriggerServiceIntent)
+//        try {
+//            val crashTriggerServiceIntent = Intent(this, CrashTriggerService::class.java)
+//            startForegroundService(crashTriggerServiceIntent)
+//        } catch (e: Exception) {
+//            Log.e("MainActivity", "Failed to start CrashTriggerService", e)
+//        }
 
     }
 }

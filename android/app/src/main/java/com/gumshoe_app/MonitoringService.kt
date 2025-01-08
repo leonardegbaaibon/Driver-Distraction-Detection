@@ -13,12 +13,16 @@ import android.hardware.camera2.params.StreamConfigurationMap
 import android.media.ImageReader
 import androidx.core.app.NotificationCompat
 import android.graphics.Color
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.ByteBuffer
 
-class MonitoringService : Service() {
+class MonitoringService : Service(), SensorEventListener {
 
     private var usageStatsManager: UsageStatsManager? = null
     private var handler: Handler? = null
@@ -33,11 +37,17 @@ class MonitoringService : Service() {
     private var imageReader: ImageReader? = null
     private var captureSession: CameraCaptureSession? = null
 
+    private var sensorManager: SensorManager? = null
+    private var accelerometer: Sensor? = null
+    private var gyroscope: Sensor? = null
+    private var lastSensorLogTime: Long = 0L
+
     companion object {
         const val CHANNEL_ID = "MonitoringServiceChannel"
         const val TAG = "MonitoringService"
         const val MONITORING_INTERVAL = 5000L
         const val NOTIFICATION_ID = 1
+        const val SENSOR_LOG_INTERVAL = 1000L // Log every 1 second
     }
 
     override fun onCreate() {
@@ -56,6 +66,18 @@ class MonitoringService : Service() {
 
             // Initialize Camera Manager
             cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+
+            // Initialize SensorManager
+            sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+
+            accelerometer?.let {
+                sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            gyroscope?.let {
+                sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
 
             // Delay starting the foreground service
             Handler(Looper.getMainLooper()).postDelayed({
@@ -180,9 +202,6 @@ class MonitoringService : Service() {
                 if (packageName != lastActiveApp) {
                     Log.i(TAG, "New foreground app detected: $appName")
                     lastActiveApp = packageName
-
-                    // Take a picture when the app changes
-                    takePicture()
                 }
             } ?: run {
                 Log.w(TAG, "No foreground app detected")
@@ -204,66 +223,41 @@ class MonitoringService : Service() {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    private fun takePicture() {
-        // Get the camera ID (assuming the device has at least one camera)
-        try {
-            val cameraId = cameraManager?.cameraIdList?.firstOrNull()
-            if (cameraId != null) {
-                // Set up the image reader to capture an image
-                val characteristics = cameraManager?.getCameraCharacteristics(cameraId)
-                val map = characteristics?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                val outputSizes = map?.getOutputSizes(ImageFormat.JPEG)
-                val size = outputSizes?.firstOrNull() // Get the first available size
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event == null) return
 
-                imageReader = size?.let { ImageReader.newInstance(it.width, it.height, ImageFormat.JPEG, 2) }
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastSensorLogTime >= SENSOR_LOG_INTERVAL) {
+            lastSensorLogTime = currentTime
 
-                // Open the camera device
-                cameraManager?.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                    override fun onOpened(camera: CameraDevice) {
-                        cameraDevice = camera
-                        val captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
-                        captureRequestBuilder.addTarget(imageReader?.surface!!)
-
-                        // Capture the image
-                        camera.createCaptureSession(listOf(imageReader?.surface), object : CameraCaptureSession.StateCallback() {
-                            override fun onConfigured(session: CameraCaptureSession) {
-                                if (cameraDevice == null) return
-
-                                captureSession = session
-                                session.capture(captureRequestBuilder.build(), object : CameraCaptureSession.CaptureCallback() {
-                                    override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
-                                        Log.d(TAG, "Picture taken")
-                                    }
-                                }, handler)
-                            }
-
-                            override fun onConfigureFailed(session: CameraCaptureSession) {
-                                Log.e(TAG, "Failed to configure camera session")
-                            }
-                        }, handler)
-                    }
-
-                    override fun onDisconnected(camera: CameraDevice) {
-                        cameraDevice?.close()
-                        cameraDevice = null
-                    }
-
-                    override fun onError(camera: CameraDevice, error: Int) {
-                        Log.e(TAG, "Error opening camera: $error")
-                    }
-                }, handler)
+            when (event.sensor.type) {
+                Sensor.TYPE_ACCELEROMETER -> {
+                    val x = event.values[0]
+                    val y = event.values[1]
+                    val z = event.values[2]
+                    Log.d(TAG, "Accelerometer - X: $x, Y: $y, Z: $z")
+                }
+                Sensor.TYPE_GYROSCOPE -> {
+                    val x = event.values[0]
+                    val y = event.values[1]
+                    val z = event.values[2]
+                    Log.d(TAG, "Gyroscope - X: $x, Y: $y, Z: $z")
+                }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error taking picture: ${e.message}", e)
         }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // Optional: Handle sensor accuracy changes
     }
 
     override fun onDestroy() {
         super.onDestroy()
         stopMonitoring()
         unregisterReceiver(screenStateReceiver)
-        captureSession?.close() // Close capture session
-        cameraDevice?.close() // Close camera device
+        captureSession?.close()
+        cameraDevice?.close()
+        sensorManager?.unregisterListener(this)
         Log.d(TAG, "MonitoringService destroyed")
     }
 
