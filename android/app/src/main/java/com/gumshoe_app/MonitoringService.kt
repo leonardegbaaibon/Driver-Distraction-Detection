@@ -17,12 +17,13 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.*
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.ByteBuffer
 
-class MonitoringService : Service(), SensorEventListener {
+class MonitoringService : Service(), SensorEventListener, LocationListener {
 
     private var usageStatsManager: UsageStatsManager? = null
     private var handler: Handler? = null
@@ -42,12 +43,25 @@ class MonitoringService : Service(), SensorEventListener {
     private var gyroscope: Sensor? = null
     private var lastSensorLogTime: Long = 0L
 
+    // Location and vehicle motion properties
+    private var locationManager: LocationManager? = null
+    private var lastLocation: Location? = null
+    private var isInVehicle = false
+    private var lastVehicleStateChange = 0L
+    private val vehicleMotionThreshold = 8.0f // m/s (approximately 29 km/h)
+    private val locationUpdateInterval = 10000L // 10 seconds
+    private val minLocationDistance = 10f // 10 meters
+
     companion object {
         const val CHANNEL_ID = "MonitoringServiceChannel"
         const val TAG = "MonitoringService"
         const val MONITORING_INTERVAL = 5000L
         const val NOTIFICATION_ID = 1
         const val SENSOR_LOG_INTERVAL = 1000L // Log every 1 second
+        private const val VEHICLE_STATE_DEBOUNCE_TIME = 30000L // 30 seconds
+        private const val SIGNIFICANT_ACCELERATION_THRESHOLD = 1.5f // m/s²
+        private const val VEHICLE_EXIT_SPEED_THRESHOLD = 3.0f  // Lower threshold for exit detection (m/s)
+        private const val GPS_MIN_ACCURACY = 20f  // Minimum accuracy in meters for reliable readings
     }
 
     override fun onCreate() {
@@ -67,17 +81,11 @@ class MonitoringService : Service(), SensorEventListener {
             // Initialize Camera Manager
             cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
 
-            // Initialize SensorManager
-            sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-            accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-            gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+            // Initialize SensorManager and sensors
+            initializeSensors()
 
-            accelerometer?.let {
-                sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-            }
-            gyroscope?.let {
-                sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-            }
+            // Initialize Location Manager and start updates
+            initializeLocation()
 
             // Delay starting the foreground service
             Handler(Looper.getMainLooper()).postDelayed({
@@ -86,21 +94,41 @@ class MonitoringService : Service(), SensorEventListener {
                 } else {
                     Log.e(TAG, "Required permissions not granted. Foreground service not started.")
                 }
-            }, 1000L) // Delay foreground service by 1 second
+            }, 1000L)
         } catch (e: Exception) {
             Log.e(TAG, "Error during onCreate: ${e.message}", e)
             stopSelf()
         }
     }
 
+    private fun initializeSensors() {
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+
+        accelerometer?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+        gyroscope?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    private fun initializeLocation() {
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (checkLocationPermission()) {
+            Log.d(TAG, "Location permission granted, starting updates")
+            startLocationUpdates()
+        } else {
+            Log.e(TAG, "Location permission NOT granted")
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand called")
-
         if (!isMonitoring) {
-            // Start monitoring as a background service
             startMonitoring()
         }
-
         return START_STICKY
     }
 
@@ -108,7 +136,6 @@ class MonitoringService : Service(), SensorEventListener {
         try {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // Create notification channel if necessary (for Android 8+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
@@ -121,7 +148,6 @@ class MonitoringService : Service(), SensorEventListener {
                 notificationManager.createNotificationChannel(channel)
             }
 
-            // Create the notification
             val notification = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Gumshoe Monitoring Active")
                 .setContentText("Monitoring phone usage in progress")
@@ -130,13 +156,58 @@ class MonitoringService : Service(), SensorEventListener {
                 .setOngoing(true)
                 .build()
 
-            // Start the service as a foreground service
             startForeground(NOTIFICATION_ID, notification)
             Log.d(TAG, "Foreground service started")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to setup foreground service", e)
             stopSelf()
         }
+    }
+
+    private fun startLocationUpdates() {
+        try {
+            if (!isGpsEnabled()) {
+                Log.e(TAG, "GPS is disabled!")
+                return
+            }
+            
+            if (checkLocationPermission()) {
+                // Try to get last known location immediately
+                val lastKnownLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                lastKnownLocation?.let {
+                    Log.d(TAG, "Last known location - Lat: ${it.latitude}, Lon: ${it.longitude}")
+                }
+
+                // Request regular updates
+                locationManager?.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    locationUpdateInterval,
+                    minLocationDistance,
+                    this
+                )
+                
+                // Also request updates from network provider as backup
+                locationManager?.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    locationUpdateInterval,
+                    minLocationDistance,
+                    this
+                )
+                
+                Log.d(TAG, "Location updates requested successfully")
+            } else {
+                Log.e(TAG, "Location permission missing when trying to start updates")
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Security exception when requesting location updates: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error requesting location updates: ${e.message}")
+        }
+    }
+
+    private fun checkLocationPermission(): Boolean {
+        return checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
     }
 
     private fun initializeUsageStatsManager() {
@@ -223,6 +294,86 @@ class MonitoringService : Service(), SensorEventListener {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
+    override fun onLocationChanged(location: Location) {
+        Log.d(TAG, "onLocationChanged called!")  // Debug log to confirm callback is triggered
+        
+        val previousLocation = lastLocation
+        lastLocation = location
+
+        // Always log new location immediately
+        Log.i(TAG, """
+            New Location Received:
+            Latitude: ${location.latitude}
+            Longitude: ${location.longitude}
+            Provider: ${location.provider}
+            Accuracy: ${location.accuracy}m
+            Time: ${java.util.Date(location.time)}
+        """.trimIndent())
+
+        // Calculate distance and speed if we have a previous location
+        previousLocation?.let {
+            val timeDiff = (location.time - it.time) / 1000f  // Convert to seconds
+            val distance = location.distanceTo(it)
+            val calculatedSpeed = distance / timeDiff
+
+            Log.d(TAG, """
+                Location updated:
+                Lat: ${location.latitude}, Lon: ${location.longitude}
+                Speed (GPS): ${location.speed} m/s
+                Speed (calc): $calculatedSpeed m/s
+                Accuracy: ${location.accuracy}m
+                Bearing: ${location.bearing}°
+                Altitude: ${location.altitude}m
+                Time: ${location.time}
+            """.trimIndent())
+        } ?: Log.d(TAG, "Initial location received")
+
+        // Check for vehicle motion based on GPS speed
+        checkVehicleMotion(location)
+    }
+
+    private fun checkVehicleMotion(location: Location) {
+        val currentTime = System.currentTimeMillis()
+        val speed = location.speed
+
+        // Only process location updates with good accuracy
+        if (location.accuracy > GPS_MIN_ACCURACY) {
+            Log.d(TAG, "Skipping location update due to poor accuracy: ${location.accuracy}m")
+            return
+        }
+
+        // Enhanced vehicle state detection
+        if (speed >= vehicleMotionThreshold && !isInVehicle &&
+            currentTime - lastVehicleStateChange > VEHICLE_STATE_DEBOUNCE_TIME) {
+            isInVehicle = true
+            lastVehicleStateChange = currentTime
+            Log.i(TAG, "Vehicle motion detected - Speed: $speed m/s, Accuracy: ${location.accuracy}m")
+            logVehicleTransition("ENTER")
+        } else if (speed < VEHICLE_EXIT_SPEED_THRESHOLD && isInVehicle &&
+            currentTime - lastVehicleStateChange > VEHICLE_STATE_DEBOUNCE_TIME) {
+            isInVehicle = false
+            lastVehicleStateChange = currentTime
+            Log.i(TAG, "Vehicle motion stopped - Speed: $speed m/s, Accuracy: ${location.accuracy}m")
+            logVehicleTransition("EXIT")
+        }
+    }
+
+    private fun logVehicleTransition(type: String) {
+        lastLocation?.let { location ->
+            val logEntry = """
+                Vehicle $type:
+                Time: ${System.currentTimeMillis()}
+                Location: ${location.latitude}, ${location.longitude}
+                Speed: ${location.speed} m/s
+                Accuracy: ${location.accuracy}m
+                Bearing: ${location.bearing}°
+            """.trimIndent()
+            Log.i(TAG, logEntry)
+            
+            // TODO: Add your preferred method to save this data (e.g., to a database or file)
+        }
+    }
+
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
 
@@ -235,7 +386,17 @@ class MonitoringService : Service(), SensorEventListener {
                     val x = event.values[0]
                     val y = event.values[1]
                     val z = event.values[2]
-                    Log.d(TAG, "Accelerometer - X: $x, Y: $y, Z: $z")
+
+                    // Calculate total acceleration for vehicle motion detection
+                    val totalAcceleration = Math.sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+
+                    // Use acceleration data to improve vehicle motion detection
+                    if (totalAcceleration > SIGNIFICANT_ACCELERATION_THRESHOLD) {
+                        Log.d(TAG, "Significant acceleration detected: $totalAcceleration m/s²")
+                        lastLocation?.let { checkVehicleMotion(it) }
+                    }
+
+                    Log.d(TAG, "Accelerometer - X: $x, Y: $y, Z: $z, Total: $totalAcceleration")
                 }
                 Sensor.TYPE_GYROSCOPE -> {
                     val x = event.values[0]
@@ -258,10 +419,18 @@ class MonitoringService : Service(), SensorEventListener {
         captureSession?.close()
         cameraDevice?.close()
         sensorManager?.unregisterListener(this)
+        locationManager?.removeUpdates(this)
         Log.d(TAG, "MonitoringService destroyed")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    // Required LocationListener methods
+    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+    override fun onProviderEnabled(provider: String) {}
+    override fun onProviderDisabled(provider: String) {
+        Log.w(TAG, "Location provider disabled: $provider")
+    }
 
     inner class ScreenStateReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -270,5 +439,9 @@ class MonitoringService : Service(), SensorEventListener {
                 Intent.ACTION_SCREEN_OFF -> stopMonitoring()
             }
         }
+    }
+
+    private fun isGpsEnabled(): Boolean {
+        return locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
     }
 }

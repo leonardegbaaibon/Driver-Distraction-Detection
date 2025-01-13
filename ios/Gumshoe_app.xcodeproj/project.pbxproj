@@ -14,6 +14,11 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		7699B88040F8A987B510C191 /* libPods-Gumshoe_app-Gumshoe_appTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-Gumshoe_app-Gumshoe_appTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		04A86CCF8D6242EB84047DE2 /* JuliusSansOne-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 36180E44D46648788D5C51AA /* JuliusSansOne-Regular.ttf */; };
+		4EB850A7D947416DAC089967 /* Kodchasan-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3C2F6CFBEDE14BA28FE756BA /* Kodchasan-Bold.ttf */; };
+		D80408168DF649EEBAE99C34 /* Kodchasan-ExtraLight.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9ED51C5C9BE4064858D406D /* Kodchasan-ExtraLight.ttf */; };
+		FB0174802141448FBD71B4B5 /* Kodchasan-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FED774F28DFC4EC5AEAEE9F2 /* Kodchasan-Light.ttf */; };
+		A93DB264D4184D369D4B6D04 /* Kodchasan-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3BFC8F80614542D5AEF0A056 /* Kodchasan-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +50,11 @@
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Gumshoe_app/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-Gumshoe_app-Gumshoe_appTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Gumshoe_app-Gumshoe_appTests.release.xcconfig"; path = "Target Support Files/Pods-Gumshoe_app-Gumshoe_appTests/Pods-Gumshoe_app-Gumshoe_appTests.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		36180E44D46648788D5C51AA /* JuliusSansOne-Regular.ttf */ = {isa = PBXFileReference; name = "JuliusSansOne-Regular.ttf"; path = "../assets/fonts/JuliusSansOne-Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		3C2F6CFBEDE14BA28FE756BA /* Kodchasan-Bold.ttf */ = {isa = PBXFileReference; name = "Kodchasan-Bold.ttf"; path = "../assets/fonts/Kodchasan-Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		D9ED51C5C9BE4064858D406D /* Kodchasan-ExtraLight.ttf */ = {isa = PBXFileReference; name = "Kodchasan-ExtraLight.ttf"; path = "../assets/fonts/Kodchasan-ExtraLight.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		FED774F28DFC4EC5AEAEE9F2 /* Kodchasan-Light.ttf */ = {isa = PBXFileReference; name = "Kodchasan-Light.ttf"; path = "../assets/fonts/Kodchasan-Light.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		3BFC8F80614542D5AEF0A056 /* Kodchasan-Regular.ttf */ = {isa = PBXFileReference; name = "Kodchasan-Regular.ttf"; path = "../assets/fonts/Kodchasan-Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +134,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				D30B4855501F462D9A7CAEAA /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -149,6 +160,19 @@
 			);
 			path = Pods;
 			sourceTree = "<group>";
+		};
+		D30B4855501F462D9A7CAEAA /* Resources */ = {
+			isa = "PBXGroup";
+			children = (
+				36180E44D46648788D5C51AA /* JuliusSansOne-Regular.ttf */,
+				3C2F6CFBEDE14BA28FE756BA /* Kodchasan-Bold.ttf */,
+				D9ED51C5C9BE4064858D406D /* Kodchasan-ExtraLight.ttf */,
+				FED774F28DFC4EC5AEAEE9F2 /* Kodchasan-Light.ttf */,
+				3BFC8F80614542D5AEF0A056 /* Kodchasan-Regular.ttf */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+			path = "";
 		};
 /* End PBXGroup section */
 
@@ -245,6 +269,11 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				04A86CCF8D6242EB84047DE2 /* JuliusSansOne-Regular.ttf in Resources */,
+				4EB850A7D947416DAC089967 /* Kodchasan-Bold.ttf in Resources */,
+				D80408168DF649EEBAE99C34 /* Kodchasan-ExtraLight.ttf in Resources */,
+				FB0174802141448FBD71B4B5 /* Kodchasan-Light.ttf in Resources */,
+				A93DB264D4184D369D4B6D04 /* Kodchasan-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

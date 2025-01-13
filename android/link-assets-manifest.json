@@ -1,0 +1,25 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/JuliusSansOne-Regular.ttf",
+      "sha1": "d66ed30f0709dcc4707d1f62158274814e8690b1"
+    },
+    {
+      "path": "assets/fonts/Kodchasan-Bold.ttf",
+      "sha1": "2f11b3863d6ca19a474338b4dd2ce7063f3eb145"
+    },
+    {
+      "path": "assets/fonts/Kodchasan-ExtraLight.ttf",
+      "sha1": "2450181c067da9739c3e951f9f49021ba6798f45"
+    },
+    {
+      "path": "assets/fonts/Kodchasan-Light.ttf",
+      "sha1": "6aa6c928a7c32ae1c9528e90ecd19528c3191a73"
+    },
+    {
+      "path": "assets/fonts/Kodchasan-Regular.ttf",
+      "sha1": "eb34dcf0c43dc83449a196d14ef6dd4ec858119d"
+    }
+  ]
+}
