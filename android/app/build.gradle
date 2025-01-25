@@ -125,9 +125,7 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24")
-    implementation 'com.google.android.gms:play-services-location:18.0.0'
-    //    implementation 'org.jtransforms:jtransforms:2.4.0' // Use the correct Maven coordinates
-
+    implementation 'com.google.android.gms:play-services-location:21.0.1' // Updated to the latest version
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
