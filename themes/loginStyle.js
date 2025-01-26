@@ -1,4 +1,3 @@
-// themes/styles.js
 export const textInput = {
     fontSize: 15,
     borderRadius: 5,

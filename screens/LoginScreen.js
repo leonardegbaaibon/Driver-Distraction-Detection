@@ -5,11 +5,58 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from "react-native";
-import { button, buttonText, titleText } from "../themes/loginStyle";
 import LargeInput from "../components/Input/LargeInput";
 import { LoginApi } from "../utils/api/apis/LoginApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LoadingModal from "../components/Modal/LoadingModal";
+import DeviceInfo from "react-native-device-info";
+
+// Define styles directly in the component file
+const styles = {
+  textInput: {
+    fontSize: 15,
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: '#292E41',
+    fontFamily: "JuliusSansOneRegular",
+  },
+  calendarInput: {
+    fontSize: 15,
+    borderRadius: 5,
+    paddingVertical: 10,
+    width: '80%',
+    backgroundColor: '#292E41'
+  },
+  calenderInputContainer: {
+    borderRadius: 5,
+    marginBottom: 20,
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#292E41',
+  },
+  button: {
+    backgroundColor: '#EEE8E0',
+    borderRadius: 5,
+    padding: 12,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 30,
+    marginTop: 10
+  },
+  buttonText: {
+    color: '#E9B962',
+    fontSize: 18,
+    fontFamily: "JuliusSansOneRegular",
+  },
+  titleText: {
+    color: 'white',
+    fontSize: 23,
+    marginHorizontal: 25,
+    fontFamily: "JuliusSansOneRegular",
+  }
+};
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
@@ -24,34 +71,61 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     setIsModalVisible(true);
+
+    // Validate email and password
     if (!validateEmail(email)) {
       setError("Invalid email address");
-      setIsModalVisible(false); // Hide the loading modal
+      setIsModalVisible(false);
       return;
     }
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters long");
-      setIsModalVisible(false); // Hide the loading modal
+      setIsModalVisible(false);
       return;
     }
 
     setError(""); // Clear any previous error messages
 
     try {
-      const response = await LoginApi({ email: email, password: password });
+      // Fetch device information
+      const deviceName = await DeviceInfo.getDeviceName();
+      const deviceOs = DeviceInfo.getSystemVersion();
+      const deviceModel = DeviceInfo.getModel();
+      const deviceAndroidId = await DeviceInfo.getAndroidId();
+      const deviceManufacturer = await DeviceInfo.getManufacturer();
+      const deviceBrand = await DeviceInfo.getBrand();
+      const deviceSerialNumber = await DeviceInfo.getSerialNumber();
+
+      // Prepare the login payload
+      const loginPayload = {
+        email,
+        password,
+        deviceName,
+        deviceOs,
+        deviceModel,
+        deviceAndroidId,
+        deviceManufacturer,
+        deviceBrand,
+        deviceSerialNumber,
+      };
+      console.log(loginPayload)
+
+      // Call the LoginApi with the updated payload
+      const response = await LoginApi(loginPayload);
+
+      console.log(response)
 
       if (response.data.meta.status === 200) {
-        // Assuming the response contains a status field indicating success
         // Store the token and navigate to the next screen upon successful login
-        await AsyncStorage.setItem('token', response.data.data.access_token);
+        await AsyncStorage.setItem("token", response.data.data.access_token);
         setIsModalVisible(false);
-        console.log(response.data.data)
+        console.log(response.data.data);
         navigation.navigate("myTabs");
       } else {
         // Handle login failure
         setError("Login failed. Incorrect Credentials");
-        setIsModalVisible(false); // Hide the loading modal
+        setIsModalVisible(false);
       }
     } catch (error) {
       // Handle login failure
@@ -73,12 +147,7 @@ const LoginScreen = ({ navigation }) => {
           justifyContent: "center",
         }}
       >
-        <Text style={{
-          color: 'white',
-          fontSize: 23,
-          marginHorizontal: 25,
-          fontFamily: "JuliusSansOneRegular",
-        }}>Log in to Gumshoe</Text>
+        <Text style={styles.titleText}>Log in to Gumshoe</Text>
         <View style={{ flex: 0.4, padding: 20, width: "100%" }}>
           <LargeInput
             placeholder="Email"
@@ -94,16 +163,16 @@ const LoginScreen = ({ navigation }) => {
           <Text style={{ color: "red", marginBottom: 10 }}>{error}</Text>
           <TouchableOpacity
             onPress={handleLogin}
-            style={[button, !isFormValid && { backgroundColor: "#888" }]}
+            style={[styles.button, !isFormValid && { backgroundColor: "#888" }]}
             disabled={!isFormValid}
           >
-            <Text style={[buttonText, !isFormValid && { color: "white" }]}>Login</Text>
+            <Text style={[styles.buttonText, !isFormValid && { color: "white" }]}>Login</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate("BlackboxCoveragescreen")}
           >
             <Text
-              style={{ color: "white", marginTop: 10, textAlign: "center", fontFamily: "KodchasanLight", }}
+              style={{ color: "white", marginTop: 10, textAlign: "center", fontFamily: "KodchasanLight" }}
             >
               Don't have an account? Sign up
             </Text>

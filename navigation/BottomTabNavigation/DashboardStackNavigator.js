@@ -1,9 +1,13 @@
 // BlackboxStackNavigator.js
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
+import FaultMonitorScreen from "../../screens/FaultMonitorScreen";
 import BlackboxScreen from "../../screens/BlackboxScreen";
 import Dashboard from "../../screens/Dashboard";
-import FaultMonitorScreen from "../../screens/FaultMonitorScreen";
+// import Dashboard from "../../assets/Dashboard";
+// import BlackboxScreen from "../../screens/BlackboxScreen";
+// import Dashboard from "../../screens/Dashboard";
+// import FaultMonitorScreen from "../../screens/FaultMonitorScreen";
 
 const Stack = createStackNavigator();
 

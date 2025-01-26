@@ -1,9 +1,5 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Dashboard from '../../screens/Dashboard';
-import TripsScreen from '../../screens/TripsScreen';
-import SettingsScreen from '../../screens/SettingsScreen';
-
 // Import your SVG icons
 import DashboardIcon from '../../assets/Dashboard.js';
 import DashboardIconFocused from '../../assets/Dashboard2.js';
@@ -11,6 +7,9 @@ import TripIcon from '../../assets/Trip.js';
 import TripIconFocused from '../../assets/Trip2.js';
 import UserIcon from '../../assets/UserIcon.js';
 import UserIconFocused from '../../assets/UserIcon2.js';
+// import DashboardStackNavigator from './DashboardStackNavigator.js';
+import TripsScreen from '../../screens/TripsScreen.js';
+import SettingsScreen from '../../screens/SettingsScreen.js';
 import DashboardStackNavigator from './DashboardStackNavigator.js';
 
 const Tab = createBottomTabNavigator();

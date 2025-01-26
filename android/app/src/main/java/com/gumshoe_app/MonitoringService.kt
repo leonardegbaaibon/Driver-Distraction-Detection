@@ -5,12 +5,8 @@ import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
 import android.content.*
 import android.content.pm.PackageManager
-import android.graphics.ImageFormat
 import android.os.*
 import android.util.Log
-import android.hardware.camera2.*
-import android.hardware.camera2.params.StreamConfigurationMap
-import android.media.ImageReader
 import androidx.core.app.NotificationCompat
 import android.graphics.Color
 import android.hardware.Sensor
@@ -18,85 +14,102 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.*
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.nio.ByteBuffer
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import java.util.concurrent.CopyOnWriteArrayList
 
 class MonitoringService : Service(), SensorEventListener, LocationListener {
 
+    // Unified data storage
+    private val monitoringDataList = CopyOnWriteArrayList<MonitoringData>()
+
+    // Timing constants
+    private companion object {
+        const val LOG_INTERVAL = 300000L  // 5 minutes
+        const val COLLECTION_INTERVAL = 20000L  // 20 seconds
+        const val CHANNEL_ID = "MonitoringServiceChannel"
+        const val TAG = "MonitoringService"
+        const val NOTIFICATION_ID = 1
+        const val GPS_MIN_ACCURACY = 20f  // Minimum accuracy in meters for reliable readings
+    }
+
+    // Service variables
     private var usageStatsManager: UsageStatsManager? = null
     private var handler: Handler? = null
     private var lastActiveApp: String = ""
     private var isMonitoring = false
     private var monitoringStartTime: Long = 0L
-    private val monitoringRunnable = Runnable { monitorForegroundApp() }
     private val screenStateReceiver = ScreenStateReceiver()
-
-    private var cameraManager: CameraManager? = null
-    private var cameraDevice: CameraDevice? = null
-    private var imageReader: ImageReader? = null
-    private var captureSession: CameraCaptureSession? = null
 
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
     private var gyroscope: Sensor? = null
-    private var lastSensorLogTime: Long = 0L
-
-    // Location and vehicle motion properties
-    private var locationManager: LocationManager? = null
-    private var lastLocation: Location? = null
-    private var isInVehicle = false
-    private var lastVehicleStateChange = 0L
-    private val vehicleMotionThreshold = 8.0f // m/s (approximately 29 km/h)
-    private val locationUpdateInterval = 5000L // 5 seconds
-    private val minLocationDistance = 10f // 10 meters
-
-    // Variables to store the latest sensor data
     private var latestAccelerometerData: FloatArray? = null
     private var latestGyroscopeData: FloatArray? = null
 
-    // Variables to store the latest location data
+    private var locationManager: LocationManager? = null
     private var latestGpsLocation: Location? = null
     private var latestNetworkLocation: Location? = null
 
-    // Variables for tracking app usage
-    private var lastAppSwitchTime: Long = 0L // Track the last time the app switched
-    private var lastForegroundApp: String = "" // Track the last foreground app
+    // Camera helper
+    private lateinit var cameraHelper: CameraHelper
+    private var latestPhotoPath: String? = null
 
-    // Handler for scheduling tasks
-    private val sensorHandler = Handler(Looper.getMainLooper())
-    private val sensorRunnable = object : Runnable {
-        override fun run() {
-            collectSensorData()
-            sensorHandler.postDelayed(this, 1000L) // Collect sensor data every 1 second
+    // Handlers for periodic tasks
+    private val logHandler = Handler(Looper.getMainLooper())
+
+    // Data class for unified collection
+    data class MonitoringData(
+        val accelerationX: Float,
+        val accelerationY: Float,
+        val accelerationZ: Float,
+        val gyroscopeX: Float,
+        val gyroscopeY: Float,
+        val gyroscopeZ: Float,
+        val speed: Float,
+        val latitude: Double,
+        val longitude: Double,
+        val appUsage: AppUsage,
+        val userPhoto: String  // Photo path or base64
+    ) {
+        fun toJson() = """
+        {
+            "accelerationX": $accelerationX,
+            "accelerationY": $accelerationY,
+            "accelerationZ": $accelerationZ,
+            "gyroscopeX": $gyroscopeX,
+            "gyroscopeY": $gyroscopeY,
+            "gyroscopeZ": $gyroscopeZ,
+            "speed": $speed,
+            "latitude": $latitude,
+            "longitude": $longitude,
+            "appUsage": ${appUsage.toJson()},
+            "userPhoto": "$userPhoto"
         }
+        """.trimIndent()
     }
 
-    private val locationHandler = Handler(Looper.getMainLooper())
-    private val locationRunnable = object : Runnable {
-        override fun run() {
-            logAllData() // Log all data in JSON format
-            locationHandler.postDelayed(this, locationUpdateInterval)
+    data class AppUsage(
+        val appName: String,
+        val processName: String,
+        val duration: Long
+    ) {
+        fun toJson() = """
+        {
+            "appName": "$appName",
+            "processName": "$processName",
+            "duration": $duration
         }
-    }
-
-    companion object {
-        const val CHANNEL_ID = "MonitoringServiceChannel"
-        const val TAG = "MonitoringService"
-        const val MONITORING_INTERVAL = 5000L
-        const val NOTIFICATION_ID = 1
-        const val SENSOR_LOG_INTERVAL = 1000L // Log every 1 second
-        private const val VEHICLE_STATE_DEBOUNCE_TIME = 30000L // 30 seconds
-        private const val SIGNIFICANT_ACCELERATION_THRESHOLD = 9.8f // m/s²
-        private const val VEHICLE_EXIT_SPEED_THRESHOLD = 3.0f  // Lower threshold for exit detection (m/s)
-        private const val GPS_MIN_ACCURACY = 20f  // Minimum accuracy in meters for reliable readings
+        """.trimIndent()
     }
 
     override fun onCreate() {
         super.onCreate()
 
         try {
+            // Initialize camera helper with ProcessLifecycleOwner
+            cameraHelper = CameraHelper(this, ProcessLifecycleOwner.get())
+
             // Initialize usage stats manager
             initializeUsageStatsManager()
 
@@ -107,20 +120,14 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
             }
             registerReceiver(screenStateReceiver, filter)
 
-            // Initialize Camera Manager
-            cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-
             // Initialize SensorManager and sensors
             initializeSensors()
 
             // Initialize Location Manager and start updates
             initializeLocation()
 
-            // Start collecting sensor data every 1 second
-            sensorHandler.post(sensorRunnable)
-
-            // Start logging all data every 5 seconds
-            locationHandler.post(locationRunnable)
+            // Start periodic tasks
+            startPeriodicTasks()
 
             // Delay starting the foreground service
             Handler(Looper.getMainLooper()).postDelayed({
@@ -134,6 +141,124 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
             Log.e(TAG, "Error during onCreate: ${e.message}", e)
             stopSelf()
         }
+    }
+
+    private fun checkRequiredPermissions(): Boolean {
+        // Check for location permission
+        val hasLocationPermission = checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+
+        // Check for usage stats permission
+        val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = appOpsManager.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            packageName
+        )
+        val hasUsageStatsPermission = mode == AppOpsManager.MODE_ALLOWED
+
+        return hasLocationPermission && hasUsageStatsPermission
+    }
+
+    private fun startPeriodicTasks() {
+        handler = Handler(Looper.getMainLooper())
+        handler?.post(object : Runnable {
+            override fun run() {
+                collectAllData()
+                handler?.postDelayed(this, COLLECTION_INTERVAL)
+            }
+        })
+
+        // Logging remains every 5 minutes
+        logHandler.postDelayed(::logAggregatedData, LOG_INTERVAL)
+    }
+
+    private fun collectAllData() {
+        // Get latest sensor values
+        val accelerometer = latestAccelerometerData ?: floatArrayOf(0f, 0f, 0f)
+        val gyroscope = latestGyroscopeData ?: floatArrayOf(0f, 0f, 0f)
+
+        // Get best location
+        val location = getBestLocation()
+        val speed = location?.speed?.times(3.6f) ?: 0f  // Convert m/s to km/h
+
+        // Get app usage
+        val currentApp = getCurrentAppUsage()
+
+        // Include the photo path or base64
+        val photo = latestPhotoPath ?: "string"  // Placeholder if no photo is available
+
+        monitoringDataList.add(
+            MonitoringData(
+                accelerationX = accelerometer[0],
+                accelerationY = accelerometer[1],
+                accelerationZ = accelerometer[2],
+                gyroscopeX = gyroscope[0],
+                gyroscopeY = gyroscope[1],
+                gyroscopeZ = gyroscope[2],
+                speed = speed,
+                latitude = location?.latitude ?: 0.0,
+                longitude = location?.longitude ?: 0.0,
+                appUsage = currentApp,
+                userPhoto = photo
+            )
+        )
+
+        // Reset the photo path after including it in the data
+        latestPhotoPath = null
+    }
+
+    private fun getCurrentAppUsage(): AppUsage {
+        val endTime = System.currentTimeMillis()
+        val startTime = endTime - COLLECTION_INTERVAL
+
+        return try {
+            val stats = usageStatsManager?.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                startTime,
+                endTime
+            )
+
+            val recentApp = stats?.maxByOrNull { it.lastTimeUsed }
+            recentApp?.let {
+                val duration = if (it.packageName == lastActiveApp) {
+                    COLLECTION_INTERVAL
+                } else {
+                    endTime - monitoringStartTime
+                }
+
+                AppUsage(
+                    appName = getAppName(it.packageName),
+                    processName = it.packageName,
+                    duration = duration
+                )
+            } ?: AppUsage("Unknown", "unknown", COLLECTION_INTERVAL)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting app usage: ${e.message}")
+            AppUsage("Error", "error", 0)
+        }
+    }
+
+    private fun getAppName(packageName: String): String {
+        return try {
+            packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(packageName, 0)
+            ).toString()
+        } catch (e: PackageManager.NameNotFoundException) {
+            packageName
+        }
+    }
+
+    private fun logAggregatedData() {
+        val jsonArray = monitoringDataList.joinToString(
+            prefix = "[",
+            postfix = "]",
+            separator = ",\n"
+        ) { it.toJson() }
+
+        Log.d(TAG, "Aggregated Data:\n$jsonArray")
+        monitoringDataList.clear()
+        logHandler.postDelayed(::logAggregatedData, LOG_INTERVAL)
     }
 
     private fun initializeSensors() {
@@ -167,19 +292,17 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
             }
 
             if (checkLocationPermission()) {
-                // Request regular updates from GPS provider
                 locationManager?.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
-                    locationUpdateInterval,
-                    minLocationDistance,
+                    COLLECTION_INTERVAL,
+                    10f,  // Minimum distance in meters
                     this
                 )
 
-                // Request regular updates from Network provider
                 locationManager?.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
-                    locationUpdateInterval,
-                    minLocationDistance,
+                    COLLECTION_INTERVAL,
+                    10f,  // Minimum distance in meters
                     this
                 )
 
@@ -194,91 +317,12 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         }
     }
 
-    private fun collectSensorData() {
-        // This method is called every 1 second to collect sensor data
-        val currentTime = System.currentTimeMillis()
-
-        // Store accelerometer data if available
-        latestAccelerometerData?.let { data ->
-            val x = data[0]
-            val y = data[1]
-            val z = data[2]
-            Log.d(TAG, "Accelerometer - Time: $currentTime, X: $x, Y: $y, Z: $z")
-        }
-
-        // Store gyroscope data if available
-        latestGyroscopeData?.let { data ->
-            val x = data[0]
-            val y = data[1]
-            val z = data[2]
-            Log.d(TAG, "Gyroscope - Time: $currentTime, X: $x, Y: $y, Z: $z")
-        }
-    }
-
-    private fun logAllData() {
-        // Get the latest sensor data
-        val accelerationX = latestAccelerometerData?.get(0) ?: 0f
-        val accelerationY = latestAccelerometerData?.get(1) ?: 0f
-        val accelerationZ = latestAccelerometerData?.get(2) ?: 0f
-
-        val gyroscopeX = latestGyroscopeData?.get(0) ?: 0f
-        val gyroscopeY = latestGyroscopeData?.get(1) ?: 0f
-        val gyroscopeZ = latestGyroscopeData?.get(2) ?: 0f
-
-        // Get the latest location data
-        val bestLocation = when {
+    private fun getBestLocation(): Location? {
+        return when {
             latestGpsLocation == null -> latestNetworkLocation
             latestNetworkLocation == null -> latestGpsLocation
             else -> if (latestGpsLocation!!.accuracy <= latestNetworkLocation!!.accuracy) latestGpsLocation else latestNetworkLocation
         }
-
-        val latitude = bestLocation?.latitude ?: 0.0
-        val longitude = bestLocation?.longitude ?: 0.0
-        val speed = bestLocation?.speed ?: 0f
-
-        // Get the latest app usage data
-        val appName = lastForegroundApp
-        val processName = lastForegroundApp // Use the same as appName for simplicity
-        val duration = if (lastAppSwitchTime > 0) System.currentTimeMillis() - lastAppSwitchTime else 0L
-
-        // Create the JSON-like string
-        val jsonData = """
-            {
-                "accelerationX": $accelerationX,
-                "accelerationY": $accelerationY,
-                "accelerationZ": $accelerationZ,
-                "gyroscopeX": $gyroscopeX,
-                "gyroscopeY": $gyroscopeY,
-                "gyroscopeZ": $gyroscopeZ,
-                "speed": $speed,
-                "latitude": $latitude,
-                "longitude": $longitude,
-                "appUsage": {
-                    "appName": "$appName",
-                    "processName": "$processName",
-                    "duration": $duration
-                },
-                "userPhoto": "string" // Placeholder for user photo
-            }
-        """.trimIndent()
-
-        // Log the JSON data
-        Log.d(TAG, "Logged Data: $jsonData")
-    }
-
-    override fun onLocationChanged(location: Location) {
-        when (location.provider) {
-            LocationManager.GPS_PROVIDER -> latestGpsLocation = location
-            LocationManager.NETWORK_PROVIDER -> latestNetworkLocation = location
-        }
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand called")
-        if (!isMonitoring) {
-            startMonitoring()
-        }
-        return START_STICKY
     }
 
     private fun setupForegroundService() {
@@ -327,12 +371,18 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         }
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand called")
+        if (!isMonitoring) {
+            startMonitoring()
+        }
+        return START_STICKY
+    }
+
     private fun startMonitoring() {
         if (!isMonitoring) {
             isMonitoring = true
             monitoringStartTime = System.currentTimeMillis()
-            handler = Handler(Looper.getMainLooper())
-            handler?.postDelayed(monitoringRunnable, MONITORING_INTERVAL)
             Log.d(TAG, "Monitoring started")
         }
     }
@@ -340,90 +390,16 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
     private fun stopMonitoring() {
         if (isMonitoring) {
             isMonitoring = false
-            handler?.removeCallbacksAndMessages(null)
             Log.d(TAG, "Monitoring stopped")
         }
-    }
-
-    private fun monitorForegroundApp() {
-        if (!isMonitoring) return
-
-        if (!checkRequiredPermissions()) {
-            Log.e(TAG, "Permissions lost. Stopping service.")
-            stopSelf()
-            return
-        }
-
-        try {
-            val endTime = System.currentTimeMillis()
-            val startTime = endTime - MONITORING_INTERVAL
-
-            val stats = usageStatsManager?.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY,
-                startTime,
-                endTime
-            )
-
-            val recentApp = stats?.maxByOrNull { it.lastTimeUsed }
-
-            recentApp?.let {
-                val packageName = it.packageName
-                val appName = try {
-                    packageManager.getApplicationLabel(
-                        packageManager.getApplicationInfo(packageName, 0)
-                    ).toString()
-                } catch (e: PackageManager.NameNotFoundException) {
-                    packageName
-                }
-
-                Log.d(TAG, "Current active app: $appName")
-
-                // Check if the app has changed
-                if (packageName != lastForegroundApp) {
-                    // Log the time spent on the previous app
-                    if (lastForegroundApp.isNotEmpty() && lastAppSwitchTime > 0) {
-                        val timeSpent = endTime - lastAppSwitchTime
-                        Log.i(TAG, "App switched to background: $lastForegroundApp, Time spent: ${timeSpent / 1000} seconds")
-                    }
-
-                    // Update the last app and switch time
-                    lastForegroundApp = packageName
-                    lastAppSwitchTime = endTime
-
-                    // Log the new foreground app
-                    Log.i(TAG, "New foreground app detected: $appName")
-                }
-            } ?: run {
-                Log.w(TAG, "No foreground app detected")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error monitoring foreground app", e)
-        }
-
-        handler?.postDelayed(monitoringRunnable, MONITORING_INTERVAL)
-    }
-
-    private fun checkRequiredPermissions(): Boolean {
-        val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOpsManager.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(),
-            packageName
-        )
-        return mode == AppOpsManager.MODE_ALLOWED
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
 
-        // Store the latest sensor data
         when (event.sensor.type) {
-            Sensor.TYPE_ACCELEROMETER -> {
-                latestAccelerometerData = event.values
-            }
-            Sensor.TYPE_GYROSCOPE -> {
-                latestGyroscopeData = event.values
-            }
+            Sensor.TYPE_ACCELEROMETER -> latestAccelerometerData = event.values
+            Sensor.TYPE_GYROSCOPE -> latestGyroscopeData = event.values
         }
     }
 
@@ -431,22 +407,13 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         // Optional: Handle sensor accuracy changes
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        stopMonitoring()
-        unregisterReceiver(screenStateReceiver)
-        captureSession?.close()
-        cameraDevice?.close()
-        sensorManager?.unregisterListener(this)
-        locationManager?.removeUpdates(this)
-        sensorHandler.removeCallbacksAndMessages(null) // Stop sensor data collection
-        locationHandler.removeCallbacksAndMessages(null) // Stop location comparison
-        Log.d(TAG, "MonitoringService destroyed")
+    override fun onLocationChanged(location: Location) {
+        when (location.provider) {
+            LocationManager.GPS_PROVIDER -> latestGpsLocation = location
+            LocationManager.NETWORK_PROVIDER -> latestNetworkLocation = location
+        }
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    // Required LocationListener methods
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
     override fun onProviderEnabled(provider: String) {}
     override fun onProviderDisabled(provider: String) {
@@ -456,13 +423,40 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
     inner class ScreenStateReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                Intent.ACTION_USER_PRESENT -> startMonitoring()
+                Intent.ACTION_USER_PRESENT -> {
+                    startMonitoring()
+                    takePhoto()
+                }
                 Intent.ACTION_SCREEN_OFF -> stopMonitoring()
             }
+        }
+    }
+
+    private fun takePhoto() {
+        cameraHelper.takePhoto { photoFile ->
+            // Convert the photo to base64 or store its path
+            val photoPath = photoFile.absolutePath
+            Log.d(TAG, "Photo captured: $photoPath")
+
+            // Store the photo path for later use in aggregated data
+            latestPhotoPath = photoPath
         }
     }
 
     private fun isGpsEnabled(): Boolean {
         return locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopMonitoring()
+        unregisterReceiver(screenStateReceiver)
+        sensorManager?.unregisterListener(this)
+        locationManager?.removeUpdates(this)
+        handler?.removeCallbacksAndMessages(null)
+        logHandler.removeCallbacksAndMessages(null)
+        Log.d(TAG, "MonitoringService destroyed")
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
 }
