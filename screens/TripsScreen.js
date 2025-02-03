@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import TripEntry from "../components/ReuseableComponents/TripEntry";
-// import { Ionicons } from "react-native-vector-icons";
+import Icon from "react-native-vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -126,7 +126,7 @@ const TripsScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            {/* <Ionicons name="arrow-back" size={24} color="#EEE8E0" /> */}
+          <Icon name="arrow-back" size={25} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trip History</Text>
           <View style={styles.placeholder} />

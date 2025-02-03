@@ -11,7 +11,7 @@ import {
   Modal,
   Switch,
 } from "react-native";
-// import { Ionicons } from "react-native-vector-icons";
+import Icon from "react-native-vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import BlackboxLogo from "../assets/BlackboxLogo.js";
@@ -65,7 +65,7 @@ const SettingsScreen = ({ navigation }) => {
 
   const fetchScoreData = async () => {
     setLoading(true); // Start loading spinner for the button
-    navigation.navigate("ScorecardScreen");
+    // navigation.navigate("ScorecardScreen");
     try {
       const fromISO = fromDate.toISOString().split("T")[0];
       const toISO = toDate.toISOString().split("T")[0];
@@ -137,11 +137,11 @@ const SettingsScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            {/* <Ionicons name="arrow-back" size={24} color="white" /> */}
+          <Icon name="arrow-back" size={25} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={toggleDropdown}>
-            {/* <Ionicons name="settings" size={24} color="white" /> */}
+          <Icon name="settings" size={25} color="white" />
           </TouchableOpacity>
         </View>
 
@@ -463,7 +463,6 @@ const styles = StyleSheet.create({
   fetchScoreButtonText: {
     color: "white",
     fontSize: 16,
-    // fontWeight: "bold",
     fontFamily: "KodchasanLight",
   },
   scoreDataSection: {
@@ -474,12 +473,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
   },
-  // loadingContainer: {
-  //   flex: 1,
-  //   justifyContent: "center",
-  //   alignItems: "center",
-  //   backgroundColor: "#151515",
-  // },
 });
 
 export default SettingsScreen;

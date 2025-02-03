@@ -10,7 +10,7 @@ import {
   Easing,
   ScrollView,
 } from "react-native";
-// import { Ionicons } from "react-native-vector-icons";
+import Icon from "react-native-vector-icons/MaterialIcons";
 // import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 
@@ -72,7 +72,7 @@ const BlackboxScreen = () => {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          {/* <Ionicons name="arrow-back" size={24} color="white" /> */}
+          <Icon name="arrow-back" size={25} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Blackbox</Text>
         <View style={{ width: 24 }} />
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#496F76",
-    marginTop: 20,
+    // marginTop: 20,
   },
   headerTitle: {
     color: "white",

@@ -9,14 +9,14 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
 
-class MainApplication : Application(), ReactApplication { // Correctly extend Application and implement ReactApplication
+class MainApplication : Application(), ReactApplication {
 
     override val reactNativeHost: ReactNativeHost =
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
                 PackageList(this).packages.apply {
-                    // Add custom ReactPackage if you have one, else this can be removed
-                     add(MyReactPackage())
+                    // Add your custom ReactPackage
+                    add(MyReactPackage())
                 }
 
             override fun getJSMainModuleName(): String = "index"

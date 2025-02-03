@@ -11,7 +11,7 @@ import {
   UIManager,
   Platform,
 } from "react-native";
-// import { Ionicons } from "react-native-vector-icons";
+import Icon from "react-native-vector-icons/MaterialIcons";
 import axios from "axios";
 import moment from "moment";
 import AsyncStorage from '@react-native-async-storage/async-storage'; // For accessing local storage
@@ -74,10 +74,10 @@ const FaultMonitorScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          {/* <Ionicons name="arrow-back" size={24} color="white" /> */}
+          <Icon name="arrow-back" size={25} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Faults Monitor</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 30 }} />
       </View>
 
       {loading ? (

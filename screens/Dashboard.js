@@ -21,21 +21,21 @@ const Dashboard = ({navigation}) => {
     <>
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.welcomeText}>Welcome, Adedamola</Text>
+        {/* <Text style={styles.welcomeText}>Welcome, Adedamola</Text> */}
         {/* Speedometer would be a custom component */}
         <Speedometer/>
         {/* Statistics */}
         <View style={styles.statisticsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>7 hrs</Text>
+            <Text style={styles.statValue}>0 hrs</Text>
             <Text style={styles.statLabel}>Time</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>2136</Text>
+            <Text style={styles.statValue}>0</Text>
             <Text style={styles.statLabel}>Total Mileage</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>98.25 %</Text>
+            <Text style={styles.statValue}>0 %</Text>
             <Text style={styles.statLabel}>Driver Score</Text>
           </View>
         </View>

@@ -10,6 +10,8 @@ import { LoginApi } from "../utils/api/apis/LoginApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LoadingModal from "../components/Modal/LoadingModal";
 import DeviceInfo from "react-native-device-info";
+import { NativeModules } from "react-native"; // Import NativeModules
+
 
 // Define styles directly in the component file
 const styles = {
@@ -71,22 +73,22 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     setIsModalVisible(true);
-
+  
     // Validate email and password
     if (!validateEmail(email)) {
       setError("Invalid email address");
       setIsModalVisible(false);
       return;
     }
-
+  
     if (password.length < 8) {
       setError("Password must be at least 8 characters long");
       setIsModalVisible(false);
       return;
     }
-
+  
     setError(""); // Clear any previous error messages
-
+  
     try {
       // Fetch device information
       const deviceName = await DeviceInfo.getDeviceName();
@@ -95,8 +97,8 @@ const LoginScreen = ({ navigation }) => {
       const deviceAndroidId = await DeviceInfo.getAndroidId();
       const deviceManufacturer = await DeviceInfo.getManufacturer();
       const deviceBrand = await DeviceInfo.getBrand();
-      const deviceSerialNumber = await DeviceInfo.getSerialNumber();
-
+      const deviceSerialNumber = await DeviceInfo.getAndroidId();
+  
       // Prepare the login payload
       const loginPayload = {
         email,
@@ -109,16 +111,23 @@ const LoginScreen = ({ navigation }) => {
         deviceBrand,
         deviceSerialNumber,
       };
-      console.log(loginPayload)
-
+      console.log(loginPayload);
+  
       // Call the LoginApi with the updated payload
       const response = await LoginApi(loginPayload);
-
-      console.log(response)
-
+  
+      console.log(response);
+  
       if (response.data.meta.status === 200) {
-        // Store the token and navigate to the next screen upon successful login
+        // Store the token in AsyncStorage for React Native usage
         await AsyncStorage.setItem("token", response.data.data.access_token);
+  
+        // Store the token in Android SharedPreferences for native usage
+        await NativeModules.AndroidUtils.saveToken(response.data.data.access_token);
+  
+        // Start the monitoring service
+        await NativeModules.MonitoringController.startService();
+  
         setIsModalVisible(false);
         console.log(response.data.data);
         navigation.navigate("myTabs");
@@ -169,7 +178,7 @@ const LoginScreen = ({ navigation }) => {
             <Text style={[styles.buttonText, !isFormValid && { color: "white" }]}>Login</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => navigation.navigate("BlackboxCoveragescreen")}
+            onPress={() => navigation.navigate("SignUp")}
           >
             <Text
               style={{ color: "white", marginTop: 10, textAlign: "center", fontFamily: "KodchasanLight" }}

@@ -49,8 +49,6 @@ class MainActivity : ReactActivity() {
             requestOverlayPermission()
         } else if (!hasUsageStatsPermission()) {
             requestUsageStatsPermission()
-        } else if (!hasAccessibilityPermission()) {
-            requestAccessibilityPermission()
         } else {
             startMonitoringService()
         }
@@ -120,26 +118,26 @@ class MainActivity : ReactActivity() {
     /**
      * Checks if accessibility permission is granted.
      */
-    private fun hasAccessibilityPermission(): Boolean {
-        val accessibilityEnabled = try {
-            Settings.Secure.getInt(
-                contentResolver,
-                Settings.Secure.ACCESSIBILITY_ENABLED
-            )
-        } catch (e: Settings.SettingNotFoundException) {
-            0
-        }
-        return accessibilityEnabled == 1
-    }
+//    private fun hasAccessibilityPermission(): Boolean {
+//        val accessibilityEnabled = try {
+//            Settings.Secure.getInt(
+//                contentResolver,
+//                Settings.Secure.ACCESSIBILITY_ENABLED
+//            )
+//        } catch (e: Settings.SettingNotFoundException) {
+//            0
+//        }
+//        return accessibilityEnabled == 1
+//    }
 
     /**
      * Requests accessibility permission by opening system settings.
      */
-    private fun requestAccessibilityPermission() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
-    }
+//    private fun requestAccessibilityPermission() {
+//        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+//        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+//        startActivity(intent)
+//    }
 
     /**
      * Handles the result of permission requests.
@@ -189,3 +187,4 @@ class MainActivity : ReactActivity() {
         checkAllPermissions()
     }
 }
+

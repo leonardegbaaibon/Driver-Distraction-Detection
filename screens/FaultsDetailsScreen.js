@@ -7,7 +7,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
 } from "react-native";
-import { Ionicons } from "react-native-vector-icons";
+import Icon from "react-native-vector-icons/MaterialIcons";
 
 const FaultDetailsScreen = ({ route, navigation }) => {
   const { faults } = route.params;
@@ -19,7 +19,7 @@ const FaultDetailsScreen = ({ route, navigation }) => {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Icon name="arrow-back" size={30} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Faults Monitor</Text>
         <View style={{ width: 24 }} />
@@ -27,17 +27,17 @@ const FaultDetailsScreen = ({ route, navigation }) => {
       <ScrollView style={styles.scrollView}>
         {faults.map((fault, index) => (
           <View key={index} style={styles.detailCard}>
-            <View style={{ display: "flex", flexDirection: "row",alignItems:'center' }}>
+            <View style={{ display: "flex", flexDirection: "row", alignItems: 'center' }}>
               <Text style={styles.titleText}>Fault:</Text>
-              <Text style={[styles.contentText,{color:'red',marginHorizontal:5}]}>{fault.fault}</Text>
+              <Text style={[styles.contentText, { color: 'red', marginHorizontal: 5 }]}>{fault.fault}</Text>
             </View>
             <View style={{ display: "flex", flexDirection: "row" }}>
               <Text style={styles.titleText}>Solution:</Text>
-              <Text style={[styles.contentText,{color:'green',marginHorizontal:5}]}>{fault.solution}</Text>
+              <Text style={[styles.contentText, { color: 'green', marginHorizontal: 5 }]}>{fault.solution}</Text>
             </View>
             <View style={{ display: "flex", flexDirection: "row" }}>
               <Text style={styles.titleText}>Status:</Text>
-              <Text style={[styles.contentText,{color:'white', marginHorizontal:5}]}>{fault.status}</Text>
+              <Text style={[styles.contentText, { color: 'white', marginHorizontal: 5 }]}>{fault.status}</Text>
             </View>
           </View>
         ))}

@@ -14,9 +14,12 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.*
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import java.util.concurrent.CopyOnWriteArrayList
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.io.OutputStream
 
 class MonitoringService : Service(), SensorEventListener, LocationListener {
 
@@ -30,7 +33,10 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         const val CHANNEL_ID = "MonitoringServiceChannel"
         const val TAG = "MonitoringService"
         const val NOTIFICATION_ID = 1
-        const val GPS_MIN_ACCURACY = 20f  // Minimum accuracy in meters for reliable readings
+        const val GPS_MIN_ACCURACY = 20f  // Minimum accuracy in meters
+        const val PREFS_NAME = "AuthPrefs"
+        const val TOKEN_KEY = "auth_token"
+        const val API_ENDPOINT = "https://api.blackboxservice.monster/v2/gumshoe/telemetry/batch"
     }
 
     // Service variables
@@ -40,6 +46,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
     private var isMonitoring = false
     private var monitoringStartTime: Long = 0L
     private val screenStateReceiver = ScreenStateReceiver()
+    private var isReceiverRegistered = false // Flag to track receiver registration
 
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
@@ -70,23 +77,25 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         val latitude: Double,
         val longitude: Double,
         val appUsage: AppUsage,
-        val userPhoto: String  // Photo path or base64
+        val userPhoto: String  // Photo in Base64 or placeholder
     ) {
-        fun toJson() = """
-        {
-            "accelerationX": $accelerationX,
-            "accelerationY": $accelerationY,
-            "accelerationZ": $accelerationZ,
-            "gyroscopeX": $gyroscopeX,
-            "gyroscopeY": $gyroscopeY,
-            "gyroscopeZ": $gyroscopeZ,
-            "speed": $speed,
-            "latitude": $latitude,
-            "longitude": $longitude,
-            "appUsage": ${appUsage.toJson()},
-            "userPhoto": "$userPhoto"
+        fun toJson(): String {
+            return """
+            {
+                "accelerationX": $accelerationX,
+                "accelerationY": $accelerationY,
+                "accelerationZ": $accelerationZ,
+                "gyroscopeX": $gyroscopeX,
+                "gyroscopeY": $gyroscopeY,
+                "gyroscopeZ": $gyroscopeZ,
+                "speed": $speed,
+                "latitude": $latitude,
+                "longitude": $longitude,
+                "appUsage": ${appUsage.toJson()},
+                "userPhoto": "$userPhoto"
+            }
+            """.trimIndent()
         }
-        """.trimIndent()
     }
 
     data class AppUsage(
@@ -94,20 +103,31 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         val processName: String,
         val duration: Long
     ) {
-        fun toJson() = """
-        {
-            "appName": "$appName",
-            "processName": "$processName",
-            "duration": $duration
+        fun toJson(): String {
+            return """
+            {
+                "appName": "$appName",
+                "processName": "$processName",
+                "duration": $duration
+            }
+            """.trimIndent()
         }
-        """.trimIndent()
     }
 
     override fun onCreate() {
         super.onCreate()
 
+        // Always start foreground service first to avoid exceptions
+        setupForegroundService()
+
+        if (!isTokenValid()) {
+            Log.d(TAG, "No valid token - stopping service")
+            stopSelf()
+            return
+        }
+
         try {
-            // Initialize camera helper with ProcessLifecycleOwner
+            // Initialize camera helper
             cameraHelper = CameraHelper(this, ProcessLifecycleOwner.get())
 
             // Initialize usage stats manager
@@ -119,45 +139,26 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
                 addAction(Intent.ACTION_SCREEN_OFF)
             }
             registerReceiver(screenStateReceiver, filter)
+            isReceiverRegistered = true // Set the flag to true
 
-            // Initialize SensorManager and sensors
+            // Initialize sensors and location
             initializeSensors()
-
-            // Initialize Location Manager and start updates
             initializeLocation()
 
             // Start periodic tasks
             startPeriodicTasks()
 
-            // Delay starting the foreground service
-            Handler(Looper.getMainLooper()).postDelayed({
-                if (checkRequiredPermissions()) {
-                    setupForegroundService()
-                } else {
-                    Log.e(TAG, "Required permissions not granted. Foreground service not started.")
-                }
-            }, 1000L)
+            // Start foreground service
+//            setupForegroundService()
         } catch (e: Exception) {
             Log.e(TAG, "Error during onCreate: ${e.message}", e)
             stopSelf()
         }
     }
 
-    private fun checkRequiredPermissions(): Boolean {
-        // Check for location permission
-        val hasLocationPermission = checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
-
-        // Check for usage stats permission
-        val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOpsManager.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(),
-            packageName
-        )
-        val hasUsageStatsPermission = mode == AppOpsManager.MODE_ALLOWED
-
-        return hasLocationPermission && hasUsageStatsPermission
+    private fun isTokenValid(): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(TOKEN_KEY, null)?.isNotEmpty() ?: false
     }
 
     private fun startPeriodicTasks() {
@@ -170,23 +171,23 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         })
 
         // Logging remains every 5 minutes
-        logHandler.postDelayed(::logAggregatedData, LOG_INTERVAL)
+        Handler(Looper.getMainLooper()).postDelayed(::logAggregatedData, LOG_INTERVAL)
     }
 
     private fun collectAllData() {
-        // Get latest sensor values
+        // Collect sensor, location, and app usage data
         val accelerometer = latestAccelerometerData ?: floatArrayOf(0f, 0f, 0f)
         val gyroscope = latestGyroscopeData ?: floatArrayOf(0f, 0f, 0f)
-
-        // Get best location
         val location = getBestLocation()
         val speed = location?.speed?.times(3.6f) ?: 0f  // Convert m/s to km/h
-
-        // Get app usage
         val currentApp = getCurrentAppUsage()
 
-        // Include the photo path or base64
-        val photo = latestPhotoPath ?: "string"  // Placeholder if no photo is available
+        // Include the photo in Base64 or a placeholder
+        val photoBase64 = if (latestPhotoPath != null) {
+            cameraHelper.encodePhotoToBase64(File(latestPhotoPath!!))
+        } else {
+            "no_photo"
+        }
 
         monitoringDataList.add(
             MonitoringData(
@@ -200,12 +201,70 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
                 latitude = location?.latitude ?: 0.0,
                 longitude = location?.longitude ?: 0.0,
                 appUsage = currentApp,
-                userPhoto = photo
+                userPhoto = photoBase64
             )
         )
 
         // Reset the photo path after including it in the data
         latestPhotoPath = null
+    }
+
+    private fun logAggregatedData() {
+        if (monitoringDataList.isEmpty()) {
+            Log.w(TAG, "No data to send. Skipping API request.")
+            return
+        }
+
+        val token = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(TOKEN_KEY, null) ?: run {
+            Log.w(TAG, "Token missing during data transmission")
+            stopSelf()
+            return
+        }
+
+        val jsonPayload = """
+        {
+            "telemetryRecords": ${monitoringDataList.joinToString(prefix = "[", postfix = "]", separator = ",\n") { it.toJson() }}
+        }
+    """.trimIndent()
+
+        Log.d(TAG, "Sending telemetry data: $jsonPayload")
+        sendDataToApi(jsonPayload, token)
+
+        monitoringDataList.clear()
+        Handler(Looper.getMainLooper()).postDelayed(::logAggregatedData, LOG_INTERVAL)
+    }
+
+    private fun sendDataToApi(jsonData: String, token: String) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL(API_ENDPOINT)
+                connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                connection.doOutput = true
+                connection.readTimeout = 10000
+                connection.connectTimeout = 15000
+
+                val outputStream: OutputStream = connection.outputStream
+                outputStream.write(jsonData.toByteArray(Charsets.UTF_8))
+                outputStream.close()
+
+                val responseCode = connection.responseCode
+                if (responseCode in 200..299) {
+                    Log.d(TAG, "Data sent successfully. Response code: $responseCode")
+                } else {
+                    val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.e(TAG, "API Error: $responseCode - $errorStream")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Network error: ${e.message}", e)
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
     }
 
     private fun getCurrentAppUsage(): AppUsage {
@@ -247,18 +306,6 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         } catch (e: PackageManager.NameNotFoundException) {
             packageName
         }
-    }
-
-    private fun logAggregatedData() {
-        val jsonArray = monitoringDataList.joinToString(
-            prefix = "[",
-            postfix = "]",
-            separator = ",\n"
-        ) { it.toJson() }
-
-        Log.d(TAG, "Aggregated Data:\n$jsonArray")
-        monitoringDataList.clear()
-        logHandler.postDelayed(::logAggregatedData, LOG_INTERVAL)
     }
 
     private fun initializeSensors() {
@@ -342,9 +389,9 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
             }
 
             val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Gumshoe Monitoring Active")
-                .setContentText("Monitoring phone usage in progress")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Gumshoe helps you drive safely")
+                .setContentText("Checking potential accident")
+                .setSmallIcon(R.drawable.ic_notification)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .build()
@@ -434,12 +481,9 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
 
     private fun takePhoto() {
         cameraHelper.takePhoto { photoFile ->
-            // Convert the photo to base64 or store its path
-            val photoPath = photoFile.absolutePath
-            Log.d(TAG, "Photo captured: $photoPath")
-
             // Store the photo path for later use in aggregated data
-            latestPhotoPath = photoPath
+            latestPhotoPath = photoFile.absolutePath
+            Log.d(TAG, "Photo captured: $latestPhotoPath")
         }
     }
 
@@ -450,7 +494,17 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
     override fun onDestroy() {
         super.onDestroy()
         stopMonitoring()
-        unregisterReceiver(screenStateReceiver)
+
+        // Unregister the receiver only if it was registered
+        if (isReceiverRegistered) {
+            try {
+                unregisterReceiver(screenStateReceiver)
+                isReceiverRegistered = false // Reset the flag
+            } catch (e: IllegalArgumentException) {
+                Log.e(TAG, "Receiver was not registered: ${e.message}")
+            }
+        }
+
         sensorManager?.unregisterListener(this)
         locationManager?.removeUpdates(this)
         handler?.removeCallbacksAndMessages(null)

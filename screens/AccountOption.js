@@ -175,6 +175,7 @@ const OnboardingScreen = () => {
                 style={{
                   fontSize: 22,
                   fontFamily: "JuliusSansOneRegular",
+                  color:'#333333'
                 }}
               >
                 {screen.text}
@@ -185,6 +186,8 @@ const OnboardingScreen = () => {
                   textAlign: "center",
                   paddingHorizontal: 20,
                   fontFamily: "JuliusSansOneRegular",
+                  color:'#333333'
+
                 }}
               >
                 {screen.description}
