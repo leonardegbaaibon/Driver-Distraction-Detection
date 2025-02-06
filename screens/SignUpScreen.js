@@ -67,7 +67,10 @@ const SignUpScreen = ({ navigation }) => {
                 ...deviceInfo,
             };
 
-            const response = await axios.post("YOUR_SIGNUP_API_ENDPOINT", signUpData);
+            console.log(signUpData)
+
+            const response = await axios.post("https://api.blackboxservice.monster/v2/gumshoe/sign.up", signUpData);
+            console.log(response)
 
             if (response.data.success) {
                 setIsModalVisible(false);
@@ -77,8 +80,9 @@ const SignUpScreen = ({ navigation }) => {
                 setIsModalVisible(false);
             }
         } catch (error) {
-            console.error("Error during signup:", error);
-            setError("An error occurred. Please try again.");
+            // console.error("Error during signup:", error);
+            // console.log(error.response.data.message)
+            setError(error.response.data.message);
             setIsModalVisible(false);
         }
     };

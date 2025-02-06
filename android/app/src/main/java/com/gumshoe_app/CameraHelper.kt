@@ -1,6 +1,8 @@
 package com.gumshoe_app
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -8,6 +10,7 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -34,7 +37,7 @@ class CameraHelper(private val context: Context, private val lifecycleOwner: Lif
                 cameraProvider.unbindAll()
 
                 // Bind the camera to the lifecycle
-                val camera = cameraProvider.bindToLifecycle(
+                cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
                     imageCapture
@@ -71,10 +74,23 @@ class CameraHelper(private val context: Context, private val lifecycleOwner: Lif
         return File.createTempFile("JPEG_${timeStamp}_", ".jpg", storageDir)
     }
 
-    // Optional: Convert photo to base64
+    // Updated: Convert photo to base64 with compression (and optional resizing)
     fun encodePhotoToBase64(photoFile: File): String {
-        val inputStream = photoFile.inputStream()
-        val bytes = inputStream.readBytes()
-        return android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+        // Decode the file into a Bitmap
+        val originalBitmap = BitmapFactory.decodeFile(photoFile.absolutePath) ?: return ""
+
+        // Optionally, resize the bitmap if needed (example code below; adjust as required)
+        // val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 2, originalBitmap.height / 2, true)
+        // For this example, we'll use the originalBitmap
+        val bitmapToCompress = originalBitmap
+
+        // Compress the bitmap
+        val outputStream = ByteArrayOutputStream()
+        // Adjust quality (0-100) as needed; lower quality means smaller file size
+        bitmapToCompress.compress(Bitmap.CompressFormat.JPEG, 50, outputStream)
+        val compressedBytes = outputStream.toByteArray()
+
+        // Encode to Base64; using NO_WRAP to avoid newline characters if preferred
+        return Base64.encodeToString(compressedBytes, Base64.NO_WRAP)
     }
 }

@@ -75,33 +75,33 @@ const TripsScreen = ({ navigation }) => {
   };
   
 
-  const fetchAddresses = async (tripsData) => {
-    const apiKey = "1f794bfc47664b09b3ec0a3c20d1e8e3"; 
-    const updatedTrips = await Promise.all(tripsData.map(async (trip) => {
-      try {
-        const [startResponse, endResponse] = await Promise.all([
-          axios.get(`https://api.opencagedata.com/geocode/v1/json?q=${trip.startLat}+${trip.startLon}&key=${apiKey}`),
-          axios.get(`https://api.opencagedata.com/geocode/v1/json?q=${trip.endLat}+${trip.endLon}&key=${apiKey}`),
-        ]);
-        const startFormatted = startResponse.data.results[0]?.formatted || "";
-        const endFormatted = endResponse.data.results[0]?.formatted || "";
+  // const fetchAddresses = async (tripsData) => {
+  //   const apiKey = "1f794bfc47664b09b3ec0a3c20d1e8e3"; 
+  //   const updatedTrips = await Promise.all(tripsData.map(async (trip) => {
+  //     try {
+  //       const [startResponse, endResponse] = await Promise.all([
+  //         axios.get(`https://api.opencagedata.com/geocode/v1/json?q=${trip.startLat}+${trip.startLon}&key=${apiKey}`),
+  //         axios.get(`https://api.opencagedata.com/geocode/v1/json?q=${trip.endLat}+${trip.endLon}&key=${apiKey}`),
+  //       ]);
+  //       const startFormatted = startResponse.data.results[0]?.formatted || "";
+  //       const endFormatted = endResponse.data.results[0]?.formatted || "";
 
-        return {
-          ...trip,
-          startAddress: startFormatted,
-          endAddress: endFormatted,
-        };
-      } catch (error) {
-        console.error("Error fetching addresses:", error);
-        return {
-          ...trip,
-          startAddress: "Address not found",
-          endAddress: "Address not found",
-        };
-      }
-    }));
-    setTrips(updatedTrips);
-  };
+  //       return {
+  //         ...trip,
+  //         startAddress: startFormatted,
+  //         endAddress: endFormatted,
+  //       };
+  //     } catch (error) {
+  //       console.error("Error fetching addresses:", error);
+  //       return {
+  //         ...trip,
+  //         startAddress: "Address not found",
+  //         endAddress: "Address not found",
+  //       };
+  //     }
+  //   }));
+  //   setTrips(updatedTrips);
+  // };
 
   const handleFromDateChange = (event, selectedDate) => {
     setShowFromPicker(false);
@@ -216,7 +216,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 10,
     justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,

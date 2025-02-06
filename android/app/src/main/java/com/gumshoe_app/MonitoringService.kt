@@ -28,16 +28,21 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
 
     // Timing constants
     private companion object {
-        const val LOG_INTERVAL = 300000L  // 5 minutes
-        const val COLLECTION_INTERVAL = 20000L  // 20 seconds
+        const val LOG_INTERVAL = 300000L           // 5 minutes
+        const val COLLECTION_INTERVAL = 20000L       // 20 seconds for main telemetry
+        const val SPEED_SAMPLE_INTERVAL = 1000L      // 1 second for speed samples
         const val CHANNEL_ID = "MonitoringServiceChannel"
         const val TAG = "MonitoringService"
         const val NOTIFICATION_ID = 1
-        const val GPS_MIN_ACCURACY = 20f  // Minimum accuracy in meters
+        const val GPS_MIN_ACCURACY = 20f             // Minimum accuracy in meters
         const val PREFS_NAME = "AuthPrefs"
         const val TOKEN_KEY = "auth_token"
         const val API_ENDPOINT = "https://api.blackboxservice.monster/v2/gumshoe/telemetry/batch"
     }
+
+    // Whitelist of target (well-defined) applications.
+    // Update these package names as required.
+    private val targetApps = setOf("com.example.targetapp1", "com.example.targetapp2")
 
     // Service variables
     private var usageStatsManager: UsageStatsManager? = null
@@ -46,7 +51,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
     private var isMonitoring = false
     private var monitoringStartTime: Long = 0L
     private val screenStateReceiver = ScreenStateReceiver()
-    private var isReceiverRegistered = false // Flag to track receiver registration
+    private var isReceiverRegistered = false  // Flag to track receiver registration
 
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
@@ -56,7 +61,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
 
     private var locationManager: LocationManager? = null
     private var latestGpsLocation: Location? = null
-    private var latestNetworkLocation: Location? = null
+    // Removed network location since we only use GPS
 
     // Camera helper
     private lateinit var cameraHelper: CameraHelper
@@ -64,6 +69,10 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
 
     // Handlers for periodic tasks
     private val logHandler = Handler(Looper.getMainLooper())
+    private var speedHandler: Handler? = null
+
+    // For storing speed samples every second
+    private val speedSamples = mutableListOf<Float>()
 
     // Data class for unified collection
     data class MonitoringData(
@@ -133,20 +142,21 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
             // Initialize usage stats manager
             initializeUsageStatsManager()
 
-            // Register screen state receiver
+            // Register screen state receiver (now only used to start/stop monitoring)
             val filter = IntentFilter().apply {
                 addAction(Intent.ACTION_USER_PRESENT)
                 addAction(Intent.ACTION_SCREEN_OFF)
             }
             registerReceiver(screenStateReceiver, filter)
-            isReceiverRegistered = true // Set the flag to true
+            isReceiverRegistered = true  // Set the flag to true
 
             // Initialize sensors and location
             initializeSensors()
             initializeLocation()
 
-            // Start periodic tasks
+            // Start periodic tasks for telemetry and speed sampling
             startPeriodicTasks()
+            startSpeedSampling()
 
             // Start foreground service
 //            setupForegroundService()
@@ -174,12 +184,37 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         Handler(Looper.getMainLooper()).postDelayed(::logAggregatedData, LOG_INTERVAL)
     }
 
+    private fun startSpeedSampling() {
+        speedHandler = Handler(Looper.getMainLooper())
+        speedHandler?.post(object : Runnable {
+            override fun run() {
+                sampleSpeed()
+                speedHandler?.postDelayed(this, SPEED_SAMPLE_INTERVAL)
+            }
+        })
+    }
+
+    private fun sampleSpeed() {
+        // Get the current speed from the latest GPS location in km/h
+        val currentSpeed = latestGpsLocation?.speed?.times(3.6f) ?: 0f
+        speedSamples.add(currentSpeed)
+    }
+
     private fun collectAllData() {
-        // Collect sensor, location, and app usage data
+        // Collect sensor data
         val accelerometer = latestAccelerometerData ?: floatArrayOf(0f, 0f, 0f)
         val gyroscope = latestGyroscopeData ?: floatArrayOf(0f, 0f, 0f)
         val location = getBestLocation()
-        val speed = location?.speed?.times(3.6f) ?: 0f  // Convert m/s to km/h
+        // Average the speed samples collected every second during this 20-second interval.
+        val avgSpeed = if (speedSamples.isNotEmpty()) {
+            (speedSamples.sum() / speedSamples.size)
+        } else {
+            // Fallback if no samples collected: use current GPS speed (converted to km/h)
+            location?.speed?.times(3.6f) ?: 0f
+        }
+        // Clear the speed samples for the next interval
+        speedSamples.clear()
+
         val currentApp = getCurrentAppUsage()
 
         // Include the photo in Base64 or a placeholder
@@ -197,7 +232,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
                 gyroscopeX = gyroscope[0],
                 gyroscopeY = gyroscope[1],
                 gyroscopeZ = gyroscope[2],
-                speed = speed,
+                speed = avgSpeed,
                 latitude = location?.latitude ?: 0.0,
                 longitude = location?.longitude ?: 0.0,
                 appUsage = currentApp,
@@ -279,19 +314,26 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
             )
 
             val recentApp = stats?.maxByOrNull { it.lastTimeUsed }
-            recentApp?.let {
+            val appUsage = recentApp?.let {
                 val duration = if (it.packageName == lastActiveApp) {
                     COLLECTION_INTERVAL
                 } else {
                     endTime - monitoringStartTime
                 }
-
                 AppUsage(
                     appName = getAppName(it.packageName),
                     processName = it.packageName,
                     duration = duration
                 )
             } ?: AppUsage("Unknown", "unknown", COLLECTION_INTERVAL)
+
+            // If the current app is in our target set and different from the previous app,
+            // trigger a photo capture.
+            if (appUsage.processName in targetApps && appUsage.processName != lastActiveApp) {
+                takePhoto()
+            }
+            lastActiveApp = appUsage.processName
+            appUsage
         } catch (e: Exception) {
             Log.e(TAG, "Error getting app usage: ${e.message}")
             AppUsage("Error", "error", 0)
@@ -339,6 +381,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
             }
 
             if (checkLocationPermission()) {
+                // Request updates only from GPS_PROVIDER for higher accuracy
                 locationManager?.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
                     COLLECTION_INTERVAL,
@@ -346,14 +389,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
                     this
                 )
 
-                locationManager?.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER,
-                    COLLECTION_INTERVAL,
-                    10f,  // Minimum distance in meters
-                    this
-                )
-
-                Log.d(TAG, "Location updates requested successfully")
+                Log.d(TAG, "GPS location updates requested successfully")
             } else {
                 Log.e(TAG, "Location permission missing when trying to start updates")
             }
@@ -365,11 +401,15 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
     }
 
     private fun getBestLocation(): Location? {
-        return when {
-            latestGpsLocation == null -> latestNetworkLocation
-            latestNetworkLocation == null -> latestGpsLocation
-            else -> if (latestGpsLocation!!.accuracy <= latestNetworkLocation!!.accuracy) latestGpsLocation else latestNetworkLocation
+        // If no GPS location has been received yet, try to get the last known location.
+        if (latestGpsLocation == null && checkLocationPermission()) {
+            try {
+                latestGpsLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Security exception getting last known location: ${e.message}")
+            }
         }
+        return latestGpsLocation
     }
 
     private fun setupForegroundService() {
@@ -457,7 +497,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
     override fun onLocationChanged(location: Location) {
         when (location.provider) {
             LocationManager.GPS_PROVIDER -> latestGpsLocation = location
-            LocationManager.NETWORK_PROVIDER -> latestNetworkLocation = location
+            // Removed network provider since we're only using GPS
         }
     }
 
@@ -471,8 +511,8 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_USER_PRESENT -> {
+                    // Only start monitoring on unlock; photo capture is now handled on app change.
                     startMonitoring()
-                    takePhoto()
                 }
                 Intent.ACTION_SCREEN_OFF -> stopMonitoring()
             }
@@ -499,7 +539,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         if (isReceiverRegistered) {
             try {
                 unregisterReceiver(screenStateReceiver)
-                isReceiverRegistered = false // Reset the flag
+                isReceiverRegistered = false  // Reset the flag
             } catch (e: IllegalArgumentException) {
                 Log.e(TAG, "Receiver was not registered: ${e.message}")
             }
@@ -509,6 +549,7 @@ class MonitoringService : Service(), SensorEventListener, LocationListener {
         locationManager?.removeUpdates(this)
         handler?.removeCallbacksAndMessages(null)
         logHandler.removeCallbacksAndMessages(null)
+        speedHandler?.removeCallbacksAndMessages(null)
         Log.d(TAG, "MonitoringService destroyed")
     }
 

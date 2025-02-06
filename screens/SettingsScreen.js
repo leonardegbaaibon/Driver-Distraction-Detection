@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 import BlackboxLogo from "../assets/BlackboxLogo.js";
 import DownloadIcon from "../assets/DownloadIcon.js";
 import ShareIcon from "../assets/ShareIcon.js";
@@ -47,6 +47,7 @@ const SettingsScreen = ({ navigation }) => {
         }
       );
       setUserData(userResponse.data.data);
+      console.log(userResponse.data)
 
       // Fetch vehicle data
       const vehicleResponse = await axios.get(
@@ -57,7 +58,8 @@ const SettingsScreen = ({ navigation }) => {
       );
       setVehicleData(vehicleResponse.data.data);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching data:", isAxiosError);
+      console.log(error.response.data.message);
     } finally {
       setLoading(false);
     }
@@ -137,11 +139,11 @@ const SettingsScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-          <Icon name="arrow-back" size={25} color="white" />
+            <Icon name="arrow-back" size={25} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={toggleDropdown}>
-          <Icon name="settings" size={25} color="white" />
+            <Icon name="settings" size={25} color="white" />
           </TouchableOpacity>
         </View>
 
