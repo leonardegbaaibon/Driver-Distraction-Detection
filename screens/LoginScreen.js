@@ -10,7 +10,7 @@ import { LoginApi } from "../utils/api/apis/LoginApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LoadingModal from "../components/Modal/LoadingModal";
 import DeviceInfo from "react-native-device-info";
-import { NativeModules } from "react-native"; // Import NativeModules
+import { NativeModules } from "react-native"; 
 
 
 // Define styles directly in the component file

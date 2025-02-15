@@ -4,7 +4,6 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
-import java.util.*
 
 class MyReactPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
@@ -19,6 +18,9 @@ class MyReactPackage : ReactPackage {
         // Add new modules for token management and service control
         modules.add(AndroidUtilsModule(reactContext))
         modules.add(MonitoringControllerModule(reactContext))
+
+        // Add the SpeedEmitterModule so that speed events can be emitted to JS
+        modules.add(SpeedEmitterModule(reactContext))
 
         return modules
     }

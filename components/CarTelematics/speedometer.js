@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, DeviceEventEmitter } from "react-native";
 import {
   Svg,
   Path,
@@ -13,6 +13,8 @@ import SpeedIcon from "../../assets/SpeedIcon";
 
 const size = 240; // Adjust size to fit your layout
 const Speedometer = ({ maxValue = 240 }) => {
+  const [speed, setSpeed] = useState(0);
+
   const [value, setValue] = useState(0); // Current displayed value
   const valueRef = useRef(0); // Ref to track the actual value (used for animation)
   const strokeWidth = 12;
@@ -27,6 +29,17 @@ const Speedometer = ({ maxValue = 240 }) => {
   const shadowCount = 7; // Number of shadow layers
 
   const animationDuration = 1000; // 1 second for animation
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener("SpeedUpdate", (data) => {
+      // data.speed will contain the speed in m/s
+      setSpeed(data.speed);
+      console.log(data.speed);
+    });
+
+    // Cleanup the subscription when the component unmounts.
+    return () => subscription.remove();
+  }, []);
 
   const renderShadowRects = () => {
     const shadows = [];
@@ -110,7 +123,7 @@ const Speedometer = ({ maxValue = 240 }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       // Generate a random value between 20 and 240
-      const randomValue = Math.floor(Math.random() * (240 - 20 + 1)) + 20;
+      const randomValue = speed.toFixed(2);
 
       // Animate from the current value to the new random value
       animateValue(valueRef.current, randomValue, animationDuration);

@@ -8,7 +8,9 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
   Switch,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -29,6 +31,7 @@ const SettingsScreen = ({ navigation }) => {
   const [showFromDatePicker, setShowFromDatePicker] = useState(false);
   const [showToDatePicker, setShowToDatePicker] = useState(false);
   const [scoreData, setScoreData] = useState(null);
+  const [error, setError] = useState("");
 
   // Fetch token and data
   const fetchProfileData = async () => {
@@ -47,7 +50,7 @@ const SettingsScreen = ({ navigation }) => {
         }
       );
       setUserData(userResponse.data.data);
-      console.log(userResponse.data)
+      console.log(userResponse.data);
 
       // Fetch vehicle data
       const vehicleResponse = await axios.get(
@@ -56,10 +59,30 @@ const SettingsScreen = ({ navigation }) => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setVehicleData(vehicleResponse.data.data);
+      // Assuming a successful response returns a non-null data object.
+      // If the API returns an error like "Vehicle not found", handle it accordingly:
+      if (
+        vehicleResponse.data &&
+        vehicleResponse.data.success &&
+        vehicleResponse.data.data
+      ) {
+        setVehicleData(vehicleResponse.data.data);
+      } else {
+        // In case of "Vehicle not found" or empty data, we set vehicleData to null.
+        setVehicleData(null);
+      }
     } catch (error) {
-      console.error("Error fetching data:", isAxiosError);
-      console.log(error.response.data.message);
+      // If the error message indicates "Vehicle not found", ensure vehicleData remains null.
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message === "Vehicle not found"
+      ) {
+        setVehicleData(null);
+      } else {
+        console.error("Error fetching data:", isAxiosError(error));
+        console.log(error.response?.data?.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -67,34 +90,28 @@ const SettingsScreen = ({ navigation }) => {
 
   const fetchScoreData = async () => {
     setLoading(true); // Start loading spinner for the button
-    // navigation.navigate("ScorecardScreen");
     try {
       const fromISO = fromDate.toISOString().split("T")[0];
       const toISO = toDate.toISOString().split("T")[0];
       const driverID = userData.traccarDriverId;
 
+      // Uncomment and adjust the URL if needed:
       // const scoreResponse = await axios.get(
       //   `http://scorecard.blackboxservice.monster/get_driver_scores/?driverID=${driverID}`
       // );
-
-      let rawResponse = scoreResponse.data;
-
-      if (typeof rawResponse !== "string") {
-        rawResponse = JSON.stringify(rawResponse);
-      }
-
-      rawResponse = rawResponse.replace(/NaN/g, "null");
-
-      try {
-        const parsedData = JSON.parse(rawResponse);
-        setScoreData(parsedData.data); // Set the score data
-
-        // Navigate to the ScorecardScreen
-      } catch (error) {
-        // console.error("Error parsing JSON:", error);
-      }
+      // let rawResponse = scoreResponse.data;
+      // if (typeof rawResponse !== "string") {
+      //   rawResponse = JSON.stringify(rawResponse);
+      // }
+      // rawResponse = rawResponse.replace(/NaN/g, "null");
+      // try {
+      //   const parsedData = JSON.parse(rawResponse);
+      //   setScoreData(parsedData.data); // Set the score data
+      // } catch (error) {
+      //   console.error("Error parsing JSON:", error);
+      // }
     } catch (error) {
-      // console.error("Error fetching score data:", error);
+      console.error("Error fetching score data:", error);
     } finally {
       setLoading(false); // Stop loading spinner
     }
@@ -175,27 +192,21 @@ const SettingsScreen = ({ navigation }) => {
                 style={styles.userImage}
               />
             ) : (
-              <View></View>
-              // <Ionicons name="person-circle" size={50} color="white" />
+              <View />
             )}
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{userData.driverName}</Text>
               <Text style={styles.userEmail}>{userData.driverEmail}</Text>
             </View>
-            {/* <Ionicons name="pencil" size={24} color="white" /> */}
           </View>
         )}
 
         {/* Vehicle Information */}
         <Text style={styles.sectionTitle}>Vehicle Information</Text>
-        {vehicleData && (
+        {vehicleData ? (
           <View style={styles.detailsSection}>
             <View style={styles.detailRow}>
               <View style={styles.detailColumn}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Telematic Device:</Text>
-                  <BlackboxLogo />
-                </View>
                 <View style={styles.detailItem}>
                   <Text style={styles.detailLabel}>Car Model:</Text>
                   <Text style={styles.detailValue}>
@@ -208,12 +219,6 @@ const SettingsScreen = ({ navigation }) => {
                   <Text style={styles.detailLabel}>Plate Number:</Text>
                   <Text style={styles.detailValue}>
                     {vehicleData.vehicleRegistrationNumber}
-                  </Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Chassis Number:</Text>
-                  <Text style={styles.detailValue}>
-                    {vehicleData.vehicleVin}
                   </Text>
                 </View>
               </View>
@@ -238,13 +243,34 @@ const SettingsScreen = ({ navigation }) => {
               </View>
             </View>
           </View>
+        ) : (
+          <View style={styles.detailsSection}>
+            <Text style={{ color: "white", textAlign: "center" }}>
+              No vehicle registered.
+            </Text>
+          </View>
+        )}
+
+        {/* Button to Add Vehicle */}
+        { !vehicleData ? (
+          <TouchableOpacity
+            style={styles.addVehicleButtonActive}
+            onPress={() => navigation.navigate("VehicleScreen")}
+          >
+            <Text style={styles.addVehicleButtonText}>Add Vehicle</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.addVehicleButtonDisabled}
+            disabled={true}
+          >
+            <Text style={styles.addVehicleButtonText}>Vehicle Registered</Text>
+          </TouchableOpacity>
         )}
 
         {/* Scorecard System */}
         <View style={styles.scorecardSection}>
           <Text style={styles.sectionTitle}>Scorecard System</Text>
-
-          {/* Fetch Score Button */}
           <TouchableOpacity
             style={styles.fetchScoreButton}
             onPress={fetchScoreData}
@@ -268,7 +294,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#496F76",
   },
   scrollView: {
-    paddingTop: 20, // Adjusted to start from "Vehicle Information"
+    paddingTop: 20,
     paddingBottom: 20,
   },
   loadingContainer: {
@@ -341,7 +367,6 @@ const styles = StyleSheet.create({
   },
   detailColumn: {
     flex: 1,
-    flexDirection: "column",
     paddingHorizontal: 5,
   },
   detailItem: {
@@ -361,55 +386,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "KodchasanLight",
   },
-  policyContainer: {
-    backgroundColor: "#496F76",
-    padding: 20,
-    margin: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  policyText: {
-    color: "white",
-    fontSize: 18,
-    fontFamily: "KodchasanLight",
-  },
-  scorecardSection: {
-    backgroundColor: "#496F76",
-    borderRadius: 10,
-    padding: 10,
-    margin: 10,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  button: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 10,
-    marginHorizontal: 5,
-    elevation: 2,
-  },
-  downloadButton: {
-    backgroundColor: "#007BFF",
-  },
-  shareButton: {
-    backgroundColor: "#28A745",
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 14,
-    fontFamily: "KodchasanLight",
-    marginRight: 10,
-  },
   dropdownMenu: {
     position: "absolute",
     top: 60,
     right: 10,
-    backgroundColor: "white", // Changed background color to white
+    backgroundColor: "white",
     borderRadius: 10,
     padding: 10,
     width: 150,
@@ -423,7 +404,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#496F76",
   },
   dropdownText: {
-    color: "#496F76", // Adjusted text color to fit new background
+    color: "#496F76",
     fontSize: 14,
     fontFamily: "KodchasanLight",
   },
@@ -435,25 +416,9 @@ const styles = StyleSheet.create({
   },
   scorecardSection: {
     backgroundColor: "#496F76",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 24,
-    marginHorizontal: 15,
-  },
-  datePickerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  dateButton: {
-    backgroundColor: "#383838",
+    borderRadius: 10,
     padding: 10,
-    borderRadius: 8,
-  },
-  dateButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "KodchasanLight",
+    margin: 10,
   },
   fetchScoreButton: {
     backgroundColor: "#4CAF50",
@@ -467,13 +432,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "KodchasanLight",
   },
-  scoreDataSection: {
-    marginTop: 16,
+  addVehicleButtonActive: {
+    backgroundColor: "#EEE8E0",
+    padding: 12,
+    borderRadius: 5,
+    alignItems: "center",
+    marginVertical: 10,
+    marginHorizontal: 20,
   },
-  scoreDataText: {
-    color: "white",
-    fontSize: 16,
-    marginBottom: 8,
+  addVehicleButtonDisabled: {
+    backgroundColor: "#888",
+    padding: 12,
+    borderRadius: 5,
+    alignItems: "center",
+    marginVertical: 10,
+    marginHorizontal: 20,
+  },
+  addVehicleButtonText: {
+    color: "#E9B962",
+    fontSize: 18,
+    fontFamily: "KodchasanLight",
   },
 });
 

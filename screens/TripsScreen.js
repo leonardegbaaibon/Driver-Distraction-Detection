@@ -186,9 +186,10 @@ const TripsScreen = ({ navigation }) => {
             keyExtractor={(_, index) => index.toString()} // Using index as the key
             renderItem={({ item }) => (
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("TripDetailsScreen", { trip: item })
-                }
+                // onPress={
+                //   // () =>
+                //   // navigation.navigate("TripDetailsScreen", { trip: item })
+                // }
               >
                 <TripEntry
                   startLocation={item.startAddress || ""} // Use the fetched start address

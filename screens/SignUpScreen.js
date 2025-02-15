@@ -12,7 +12,8 @@ import {
 import DeviceInfo from "react-native-device-info";
 import axios from "axios";
 import LargeInput from "../components/Input/LargeInput";
-import LoadingModal from "../components/Modal/LoadingModal"; // Import Loading Modal
+import LoadingModal from "../components/Modal/LoadingModal";
+
 
 const SignUpScreen = ({ navigation }) => {
     const [firstname, setFirstname] = useState("");

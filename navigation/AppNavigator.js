@@ -10,6 +10,7 @@ import AccountOption from "../screens/AccountOption";
 // import SmartPhoneSignUp from "../screens/Onboarding/NoCoverage/Smartphone/SmartPhoneSignUp";
 import MyTabs from "./BottomTabNavigation/Tabs";
 import SignUpScreen from "../screens/SignUpScreen";
+import VehicleScreen from "../screens/VehicleScreen";
 // import CustomSplashScreen from "../screens/CustomSplashScreen";
 // import FaultDetailsScreen from "../screens/FaultsDetailsScreen";
 // import TripsDetailsScreen from "../screens/TripsDetailsScreen";
@@ -40,6 +41,8 @@ const AppNavigator = () => {
         <Stack.Screen name="Accountoption" component={AccountOption} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="VehicleScreen" component={VehicleScreen} />
+
         {/* <Stack.Screen name="faultsDetailsScreen" component={FaultDetailsScreen} />
         <Stack.Screen name="TripDetailsScreen" component={TripsDetailsScreen} />
         <Stack.Screen name="smartphonesignup" component={SmartPhoneSignUp} />

@@ -53,12 +53,8 @@
 <!--            android:exported="false"-->
 <!--            android:foregroundServiceType="location" />-->
         <service android:name=".MonitoringService" android:enabled="true" android:exported="false" />
-<!--        <service-->
-<!--            android:name=".CrashTriggerService"-->
-<!--            android:enabled="true"-->
-<!--            android:exported="false" />-->
 
-
+        <!-- Main activity -->
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"

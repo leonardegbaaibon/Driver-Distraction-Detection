@@ -3,6 +3,7 @@ package com.gumshoe_app
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Base64
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -14,83 +15,121 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
-import android.util.Base64
 
 class CameraHelper(private val context: Context, private val lifecycleOwner: LifecycleOwner) {
 
     private var imageCapture: ImageCapture? = null
+    private var isCameraInitializing = false
+    private var pendingPhotoRequest: (() -> Unit)? = null
+
+    init {
+        initializeCamera()
+    }
+
+    private fun initializeCamera() {
+        if (isCameraInitializing) return
+        isCameraInitializing = true
+
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        cameraProviderFuture.addListener({
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                imageCapture = ImageCapture.Builder().build()
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, imageCapture)
+                Log.d("CameraHelper", "Camera initialized successfully")
+                pendingPhotoRequest?.invoke()
+                pendingPhotoRequest = null
+            } catch (e: Exception) {
+                Log.e("CameraHelper", "Camera initialization failed: ${e.message}")
+            } finally {
+                isCameraInitializing = false
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
 
     fun takePhoto(onPhotoCaptured: (File) -> Unit) {
+        if (imageCapture == null) {
+            Log.w("CameraHelper", "Camera not ready. Queuing photo request")
+            pendingPhotoRequest = { takePhoto(onPhotoCaptured) }
+            if (!isCameraInitializing) initializeCamera()
+            return
+        }
+
+        val photoFile = createPhotoFile()
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        imageCapture?.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    Log.d("CameraHelper", "Photo saved: ${photoFile.absolutePath}")
+                    onPhotoCaptured(photoFile)
+                }
+                override fun onError(exception: ImageCaptureException) {
+                    Log.e("CameraHelper", "Capture failed: ${exception.message}")
+                    // Retry initialization on error
+                    imageCapture = null
+                    initializeCamera()
+                }
+            }
+        )
+    }
+
+    fun shutdown() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-
         cameraProviderFuture.addListener({
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-
-            // Set up the image capture use case
-            imageCapture = ImageCapture.Builder().build()
-
-            // Select the back camera
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
             try {
-                // Unbind all use cases before rebinding
+                val cameraProvider = cameraProviderFuture.get()
                 cameraProvider.unbindAll()
-
-                // Bind the camera to the lifecycle
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    imageCapture
-                )
-
-                // Create a file to save the photo
-                val photoFile = createPhotoFile()
-
-                // Set up the image capture listener
-                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-                imageCapture?.takePicture(
-                    outputOptions,
-                    ContextCompat.getMainExecutor(context),
-                    object : ImageCapture.OnImageSavedCallback {
-                        override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                            Log.d("CameraHelper", "Photo saved: ${photoFile.absolutePath}")
-                            onPhotoCaptured(photoFile)
-                        }
-
-                        override fun onError(exception: ImageCaptureException) {
-                            Log.e("CameraHelper", "Error capturing photo: ${exception.message}")
-                        }
-                    }
-                )
+                imageCapture = null
+                Log.d("CameraHelper", "Camera resources released")
             } catch (e: Exception) {
-                Log.e("CameraHelper", "Error setting up camera: ${e.message}")
+                Log.e("CameraHelper", "Shutdown failed: ${e.message}")
             }
         }, ContextCompat.getMainExecutor(context))
     }
 
     private fun createPhotoFile(): File {
-        val storageDir = context.getExternalFilesDir("photos")
+        val storageDir = context.getExternalFilesDir("photos") ?: context.filesDir
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(System.currentTimeMillis())
-        return File.createTempFile("JPEG_${timeStamp}_", ".jpg", storageDir)
+        return File.createTempFile("GUMSEE_${timeStamp}_", ".jpg", storageDir).apply {
+            parentFile?.mkdirs()
+        }
     }
 
-    // Updated: Convert photo to base64 with compression (and optional resizing)
     fun encodePhotoToBase64(photoFile: File): String {
-        // Decode the file into a Bitmap
-        val originalBitmap = BitmapFactory.decodeFile(photoFile.absolutePath) ?: return ""
+        if (!photoFile.exists()) {
+            Log.e("CameraHelper", "Photo file missing: ${photoFile.absolutePath}")
+            return "error_missing_file"
+        }
 
-        // Optionally, resize the bitmap if needed (example code below; adjust as required)
-        // val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 2, originalBitmap.height / 2, true)
-        // For this example, we'll use the originalBitmap
-        val bitmapToCompress = originalBitmap
+        return try {
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = 4  // Reduce memory usage
+            }
+            val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath, options)
+                ?: return "error_decode_failed"
 
-        // Compress the bitmap
-        val outputStream = ByteArrayOutputStream()
-        // Adjust quality (0-100) as needed; lower quality means smaller file size
-        bitmapToCompress.compress(Bitmap.CompressFormat.JPEG, 50, outputStream)
-        val compressedBytes = outputStream.toByteArray()
+            val maxDimension = 640  // Balance quality and size
+            val scaledBitmap = Bitmap.createScaledBitmap(
+                bitmap,
+                (bitmap.width * 0.5f).toInt(),
+                (bitmap.height * 0.5f).toInt(),
+                true
+            )
 
-        // Encode to Base64; using NO_WRAP to avoid newline characters if preferred
-        return Base64.encodeToString(compressedBytes, Base64.NO_WRAP)
+            ByteArrayOutputStream().use { outputStream ->
+                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
+                Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP).also {
+                    Log.d("CameraHelper", "Encoded image (${it.length} chars)")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CameraHelper", "Encoding failed: ${e.message}")
+            "error_encoding"
+        }
     }
 }

@@ -116,28 +116,25 @@ class MainActivity : ReactActivity() {
     }
 
     /**
-     * Checks if accessibility permission is granted.
+     * Opens the app's settings page for manual permission granting.
      */
-//    private fun hasAccessibilityPermission(): Boolean {
-//        val accessibilityEnabled = try {
-//            Settings.Secure.getInt(
-//                contentResolver,
-//                Settings.Secure.ACCESSIBILITY_ENABLED
-//            )
-//        } catch (e: Settings.SettingNotFoundException) {
-//            0
-//        }
-//        return accessibilityEnabled == 1
-//    }
+    private fun openAppSettings() {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null)
+        )
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+    }
 
     /**
-     * Requests accessibility permission by opening system settings.
+     * Starts the MonitoringService once all permissions are granted.
      */
-//    private fun requestAccessibilityPermission() {
-//        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-//        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//        startActivity(intent)
-//    }
+    private fun startMonitoringService() {
+        Log.d(TAG, "All permissions granted. Starting MonitoringService")
+        val monitoringServiceIntent = Intent(this, MonitoringService::class.java)
+        startForegroundService(monitoringServiceIntent)
+    }
 
     /**
      * Handles the result of permission requests.
@@ -158,29 +155,6 @@ class MainActivity : ReactActivity() {
     }
 
     /**
-     * Opens the app's settings page for manual permission granting.
-     */
-    private fun openAppSettings() {
-        val intent = Intent(
-            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.fromParts("package", packageName, null)
-        )
-
-
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
-    }
-
-    /**
-     * Starts the MonitoringService once all permissions are granted.
-     */
-    private fun startMonitoringService() {
-        Log.d(TAG, "All permissions granted. Starting MonitoringService")
-        val monitoringServiceIntent = Intent(this, MonitoringService::class.java)
-        startForegroundService(monitoringServiceIntent)
-    }
-
-    /**
      * Re-checks permissions when the activity resumes.
      */
     override fun onResume() {
@@ -189,4 +163,3 @@ class MainActivity : ReactActivity() {
         checkAllPermissions()
     }
 }
-
